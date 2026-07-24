@@ -176,12 +176,12 @@ export function chooseSpecialty(s: GameState, style: StyleId): GameState {
   return next;
 }
 
-/** Three random Uncommon works offered as a founding acquisition.
- *  The player picks one to lead their collection; its style becomes
- *  the founding specialty. Uncommon (score 10-19) so the starter is
- *  a real, named work rather than procedural filler. */
+/** Three rare but non-masterpiece works offered as the family inheritance.
+ *  The player begins with exactly one meaningful artwork — enough to found
+ *  a tiny gallery, but nowhere near enough to skip the collection-building
+ *  game. Scores 20-34 deliberately exclude the famous late-game icons. */
 export function foundingArtworkChoices(): string[] {
-  const pool = ARTIFACTS.filter(a => a.score >= 10 && a.score <= 19);
+  const pool = ARTIFACTS.filter(a => a.score >= 20 && a.score <= 34 && a.value <= 180000);
   const out: string[] = [];
   const avail = [...pool];
   while (out.length < 3 && avail.length) {
