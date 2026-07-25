@@ -1,7 +1,7 @@
-import type { GameState, Room, StyleId, StaffMember, TemporaryExhibition, WeeklyReport } from '../data/types';
+import type { GameState, Room, StyleId } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
-import { STYLES, DISTRICTS, districtOfBuilding, STATIC_MUSEUMS } from '../data/constants';
-import { activeMuseum, computeExpenses, museumById, roomRatings } from './game';
+import { STYLES, districtOfBuilding, STATIC_MUSEUMS } from '../data/constants';
+import { activeMuseum, museumById, roomRatings } from './game';
 import { money, uid } from './util';
 
 export type ThesisId = 'movement' | 'artist' | 'period' | 'region' | 'medium' | 'dialogue';

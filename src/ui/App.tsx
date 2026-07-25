@@ -18,10 +18,10 @@ import type {
   GameState, StyleId, Room, SaveSlot, GameEvent, Expedition,
 } from '../data/types';
 import {
-  STYLES, STYLE_IDS, ART_TYPES, BUILDINGS, AD_CAMPAIGN, START,
+  STYLES, STYLE_IDS, BUILDINGS, AD_CAMPAIGN, START,
   AUCTION_HOUSES, EXPEDITION_TIERS, SUMMON_COST,
   DISTRICTS, districtOfBuilding, typeIcon, rarityForScore,
-  RARITY_BANDS, STATIC_MUSEUMS,
+  RARITY_BANDS,
 } from '../data/constants';
 import { ARTIFACTS, ARTIFACT_BY_ID } from '../data/artifacts';
 import * as E from '../engine/game';
@@ -31,7 +31,7 @@ import * as Gala from '../engine/gala';
 import * as BM from '../engine/blackmarket';
 import * as Saves from '../engine/saves';
 import * as D from '../engine/director';
-import { money, stars } from '../engine/util';
+import { money } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
 
 type Tab =
@@ -2902,7 +2902,7 @@ type RankRec = {
   you?: boolean;
 };
 
-function CompetitorsTab({ state, apply }: { state: GameState; apply: (r: {state: GameState; error?: string}) => void }) {
+function CompetitorsTab({ state }: { state: GameState; apply: (r: {state: GameState; error?: string}) => void }) {
   const [scope, setScope] = useState<'city' | 'global'>('city');
   const [metric, setMetric] = useState<'fame' | 'quality' | 'visitors'>('fame');
 
@@ -3107,17 +3107,6 @@ function CodexTab({
         </section>
       )}
     </div>
-  );
-}
-function Chip({
-  on, onClick, children,
-}: {
-  on: boolean; onClick: () => void; children: React.ReactNode;
-}) {
-  return (
-    <span className={'filter-chip' + (on ? ' active' : '')} onClick={onClick}>
-      {children}
-    </span>
   );
 }
 
