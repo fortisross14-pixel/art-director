@@ -17,7 +17,7 @@ import {
   STYLES, STYLE_IDS, BUILDINGS, BUILDING_ORDER, ROOM_CAPACITY,
   RESEARCH_TIERS, AD_CAMPAIGN, START, RIVAL_NAMES, AUCTION_HOUSES,
   EXPEDITION_TIERS, EXPEDITION_WEEKS, SUMMON_COST,
-  rarityForScore,
+  rarityForScore, districtOfBuilding,
 } from '../data/constants';
 import type { AuctionHouseDef } from '../data/constants';
 import type { PurchaseOutcome as BMPurchaseOutcome } from './blackmarket';
@@ -125,6 +125,11 @@ export function newGame(): GameState {
     restorationOwed: {},
     stolenUndeclared: {},
     salvageOnly: [],
+    styleResearch: {},
+    temporaryExhibitions: [],
+    memberships: 0,
+    museumRelations: {},
+    weeklyReport: null,
     phase: 'choose-specialty',
   };
 }
@@ -162,6 +167,10 @@ function fork(s: GameState): GameState {
     restorationOwed: { ...(s.restorationOwed || {}) },
     stolenUndeclared: { ...(s.stolenUndeclared || {}) },
     salvageOnly: [...(s.salvageOnly || [])],
+    styleResearch: JSON.parse(JSON.stringify(s.styleResearch || {})),
+    temporaryExhibitions: (s.temporaryExhibitions || []).map(x => ({ ...x, artifactIds: [...x.artifactIds] })),
+    museumRelations: { ...(s.museumRelations || {}) },
+    weeklyReport: s.weeklyReport ? JSON.parse(JSON.stringify(s.weeklyReport)) : null,
   };
 }
 
@@ -1489,7 +1498,16 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
   // interpretation turn quality into attendance.
   const ratings = museumExhibitionRatings(s, mus.id);
   const presentationMult = 0.72 + ratings.attractiveness / 250 + ratings.artQuality / 500;
-  return total * BUILDINGS[mus.buildingId].prestige * presentationMult;
+  const district = districtOfBuilding(mus.buildingId);
+  const districtMult = district?.id.includes('downtown') ? 1.12
+    : district?.id.includes('historic') ? 1.08
+    : district?.id.includes('college') ? 1.04
+    : district?.id.includes('water') ? 0.94 : 1;
+  const temporary = (s.temporaryExhibitions || []).filter(x =>
+    mus.rooms.some(r => r.id === x.roomId)).reduce((n, x) =>
+      n + 0.08 + x.marketing / 50000 + (x.quality + x.attractiveness) / 1600, 0);
+  return total * BUILDINGS[mus.buildingId].prestige * presentationMult
+    * districtMult * (1 + Math.min(0.65, temporary));
 }
 
 /** weekly visitors for a museum — six open days, shaped by
@@ -1515,7 +1533,13 @@ export function computeVisitors(s: GameState, museum?: Museum): number {
 export function computeRevenue(s: GameState, museum?: Museum): number {
   const mus = museum || activeMuseum(s);
   const visitors = computeVisitors(s, mus);
-  return Math.round(visitors * (mus.ticket + 3));
+  const temporary = (s.temporaryExhibitions || []).filter(x =>
+    mus.rooms.some(r => r.id === x.roomId));
+  const avgSurcharge = temporary.length
+    ? temporary.reduce((n, x) => n + x.surcharge, 0) / temporary.length : 0;
+  const memberShare = Math.min(0.18, (s.memberships || 0) / Math.max(500, visitors * 8));
+  return Math.round(visitors * (mus.ticket + 3 + avgSurcharge * 0.28)
+    * (1 - memberShare * 0.35));
 }
 /** total weekly revenue across every open museum */
 export function totalRevenue(s: GameState): number {

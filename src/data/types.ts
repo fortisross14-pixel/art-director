@@ -91,6 +91,10 @@ export interface Room {
   decoration?: number;      // 0-3: visual presentation and atmosphere
   interpretation?: number;  // 0-3: labels, wall texts and audio guides
   amenities?: number;       // 0-3: benches, circulation and visitor comfort
+  thesis?: string;          // curatorial concept selected for the exhibition
+  decorStyle?: 'classic' | 'dramatic' | 'minimal' | 'immersive';
+  assignedCuratorId?: string | null;
+  assignedResearcherId?: string | null;
 }
 
 export type EventKind = 'auction' | 'donation';
@@ -235,6 +239,37 @@ export interface Museum {
   open: boolean;                  // false once the museum is closed
 }
 
+export interface StyleResearchState {
+  level: number;
+  points: number;
+  completed: string[];
+  activeNode: string | null;
+  weeksLeft: number;
+}
+
+export interface TemporaryExhibition {
+  id: string;
+  name: string;
+  style: StyleId;
+  roomId: number;
+  artifactIds: string[];
+  weeksLeft: number;
+  marketing: number;
+  surcharge: number;
+  quality: number;
+  attractiveness: number;
+}
+
+export interface WeeklyReport {
+  visitors: number;
+  revenue: number;
+  expenses: number;
+  profit: number;
+  headline: string;
+  notes: string[];
+  segments: Record<string, number>;
+}
+
 export interface GameState {
   playerName: string;
   galleryName: string;            // the player's overall collection name
@@ -270,6 +305,11 @@ export interface GameState {
   stolenUndeclared: Record<string, number>;
   // owned ids that are salvage-only (forgeries) — cannot exhibit
   salvageOnly: string[];
+  styleResearch?: Partial<Record<StyleId, StyleResearchState>>;
+  temporaryExhibitions?: TemporaryExhibition[];
+  memberships?: number;
+  museumRelations?: Record<string, number>;
+  weeklyReport?: WeeklyReport | null;
   phase: Phase;
 }
 

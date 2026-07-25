@@ -20,12 +20,12 @@ import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { rand, money } from './util';
 
 export const AUCTION_CFG = {
-  stepMs: 2000,         // each countdown number is held this long
-  announceMs: 2000,     // a new bid is announced for this long
+  stepMs: 1100,         // each countdown number is held this long
+  announceMs: 900,     // a new bid is announced for this long
   countFrom: 3,         // count 3 -> 2 -> 1 -> sold
-  hardCapMs: 90000,
-  rivalMinGapMs: 1400,
-  rivalMaxGapMs: 3200,
+  hardCapMs: 30000,
+  rivalMinGapMs: 650,
+  rivalMaxGapMs: 1700,
 };
 
 /** Price an artifact will roughly fetch. Correlated to score but

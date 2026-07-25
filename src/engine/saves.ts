@@ -48,6 +48,11 @@ function migrateState(state: Partial<GameState>): GameState {
   if (s.research === undefined) s.research = null;
   if (s.activeEvent === undefined) s.activeEvent = null;
   if (s.auction === undefined) s.auction = null;
+  if (!s.styleResearch || typeof s.styleResearch !== 'object') s.styleResearch = {};
+  if (!Array.isArray(s.temporaryExhibitions)) s.temporaryExhibitions = [];
+  if (typeof s.memberships !== 'number') s.memberships = 0;
+  if (!s.museumRelations || typeof s.museumRelations !== 'object') s.museumRelations = {};
+  if (s.weeklyReport === undefined) s.weeklyReport = null;
 
   // --- multi-museum migration ---------------------------------
   // a pre-multimuseum save kept rooms/fame/buildingId/etc. flat on
@@ -87,6 +92,12 @@ function migrateState(state: Partial<GameState>): GameState {
       && typeof sp.weeksLeft === 'number');
     if (!m.wingNames) m.wingNames = {};
     if (typeof m.adWeeksLeft !== 'number') m.adWeeksLeft = 0;
+    for (const r of m.rooms) {
+      if (r.thesis === undefined) r.thesis = 'movement';
+      if (r.decorStyle === undefined) r.decorStyle = 'classic';
+      if (r.assignedCuratorId === undefined) r.assignedCuratorId = null;
+      if (r.assignedResearcherId === undefined) r.assignedResearcherId = null;
+    }
   }
   return s;
 }

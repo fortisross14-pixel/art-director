@@ -12,7 +12,7 @@
        Competitors / Codex
      ended         : final score
    ============================================================ */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './styles.css';
 import type {
   GameState, StyleId, Room, SaveSlot, GameEvent, Expedition,
@@ -30,12 +30,13 @@ import * as Dig from '../engine/digboard';
 import * as Gala from '../engine/gala';
 import * as BM from '../engine/blackmarket';
 import * as Saves from '../engine/saves';
+import * as D from '../engine/director';
 import { money, stars } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
 
 type Tab =
-  | 'galleries' | 'map' | 'week' | 'specialties'
-  | 'manage' | 'competitors' | 'codex';
+  | 'floor' | 'collection' | 'opportunities' | 'exploration'
+  | 'staff' | 'research' | 'finance' | 'city' | 'museums';
 
 /* ============================================================
    ROOT — owns the active slot, routes home vs in-game
@@ -128,7 +129,7 @@ function Game({
   onExit: () => void;
 }) {
   const [state, setRawState] = useState<GameState>(initial);
-  const [tab, setTab] = useState<Tab>('galleries');
+  const [tab, setTab] = useState<Tab>('floor');
   const [toast, setToast] = useState<string | null>(null);
   const [openArtifactId, setOpenArtifactId] = useState<string | null>(null);
   // a confirm prompt before advancing the week with events pending
@@ -151,22 +152,20 @@ function Game({
     Saves.saveSlot(slot, s);
   }, [slot]);
 
-  /* --- auction tick loop ----------------------------------- */
-  const lastRef = useRef<number>(0);
+  /* --- auction clock ---------------------------------------
+     Use a fixed simulation step rather than measuring wall-clock deltas.
+     This is deliberately boring and reliable: browser throttling, React
+     re-renders, and dev-mode double effects can no longer freeze a lot. */
   useEffect(() => {
-    // frozen during the intro pause and once the lot is over
     if (!state.auction || state.auction.over
         || state.auction.mode === 'intro') return;
-    lastRef.current = performance.now();
+    const STEP_MS = 200;
     const handle = window.setInterval(() => {
       setRawState(s => {
         if (!s.auction || s.auction.over || s.auction.mode === 'intro') return s;
-        const now = performance.now();
-        const delta = now - lastRef.current;
-        lastRef.current = now;
-        return { ...s, auction: Auc.tickAuction(s, delta) };
+        return { ...s, auction: Auc.tickAuction(s, STEP_MS) };
       });
-    }, 100);
+    }, STEP_MS);
     return () => window.clearInterval(handle);
   }, [state.auction?.over, state.auction?.artifactId, state.auction?.mode]);
   // when an auction resolves, persist once
@@ -195,15 +194,15 @@ function Game({
   /* --- next week, with skip-events confirm ----------------- */
   const doNextWeek = () => {
     if (state.events.length > 0) { setConfirmSkip(true); return; }
-    setState(E.advanceWeek(state));
+    setState(D.progressDirectorSystems(E.advanceWeek(state)));
   };
   const confirmSkipYes = () => {
     setConfirmSkip(false);
-    setState(E.advanceWeek(state));
+    setState(D.progressDirectorSystems(E.advanceWeek(state)));
   };
   const confirmSkipNo = () => {
     setConfirmSkip(false);
-    setTab('week');
+    setTab('opportunities');
   };
 
   /* --- body ------------------------------------------------ */
@@ -260,26 +259,30 @@ function Game({
         </div>
       </div>
     );
-  } else if (tab === 'galleries') {
+  } else if (tab === 'floor') {
     body = <GalleriesTab state={state} apply={apply} flash={flash}
       setState={setState} onArtifact={setOpenArtifactId} />;
-  } else if (tab === 'map') {
-    body = <MapTab state={state} apply={apply} setState={setState}
-      flash={flash} goGalleries={() => setTab('galleries')} />;
-  } else if (tab === 'week') {
+  } else if (tab === 'collection') {
+    body = <CodexTab state={state} onArtifact={setOpenArtifactId} />;
+  } else if (tab === 'opportunities') {
     body = <WeekTab state={state} setState={setState} flash={flash}
-      goGalleries={() => setTab('galleries')} onNextWeek={doNextWeek}
+      goGalleries={() => setTab('floor')} onNextWeek={doNextWeek}
       onExpeditionResult={expId => setExpeditionGame(expId)}
       onGala={() => setGalaOpen(true)}
       onBlackMarket={() => setBlackMarketOpen(true)} />;
-  } else if (tab === 'specialties') {
+  } else if (tab === 'exploration') {
+    body = <ExpeditionsTab state={state} apply={apply} />;
+  } else if (tab === 'staff') {
+    body = <PersonnelTab state={state} apply={apply} />;
+  } else if (tab === 'research') {
     body = <SpecialtiesTab state={state} apply={apply} />;
-  } else if (tab === 'manage') {
-    body = <ManageTab state={state} setState={setState} apply={apply} />;
-  } else if (tab === 'competitors') {
-    body = <CompetitorsTab state={state} />;
+  } else if (tab === 'finance') {
+    body = <BusinessTab state={state} setState={setState} apply={apply} />;
+  } else if (tab === 'city') {
+    body = <MapTab state={state} apply={apply} setState={setState}
+      flash={flash} goGalleries={() => setTab('floor')} />;
   } else {
-    body = <CodexTab state={state} onArtifact={setOpenArtifactId} />;
+    body = <CompetitorsTab state={state} apply={apply} />;
   }
 
   return (
@@ -306,14 +309,21 @@ function Shell({
   const ratings = E.museumExhibitionRatings(state);
   const navGroups: { title: string; items: [Tab, string, string][] }[] = [
     { title: 'Museum', items: [
-      ['galleries', 'Floor Plan', '🏛'], ['week', 'Calendar & Events', '📅'],
-      ['map', 'City & Neighborhoods', '🗺'],
+      ['floor', 'Museum Floor', '🏛'],
+      ['opportunities', 'Calendar & Opportunities', '📅'],
     ]},
-    { title: 'Director', items: [
-      ['manage', 'Business & Staff', '💼'], ['specialties', 'Research & Styles', '📚'],
+    { title: 'Collection', items: [
+      ['collection', 'Collection Vault', '🖼'],
+      ['exploration', 'Exploration', '🧭'],
+    ]},
+    { title: 'Institution', items: [
+      ['staff', 'Staff', '👥'],
+      ['research', 'Research & Styles', '📚'],
+      ['finance', 'Finance & Marketing', '💼'],
     ]},
     { title: 'World', items: [
-      ['competitors', 'Museums & Rankings', '🌍'], ['codex', 'Collection Database', '🖼'],
+      ['city', 'City & Neighborhoods', '🗺'],
+      ['museums', 'Museums & Rankings', '🌍'],
     ]},
   ];
   return (
@@ -324,7 +334,7 @@ function Shell({
           <div><h1>{state.galleryName || 'Museum Wars'}</h1><span className="tagline">Week {state.week} · {state.playerName || 'Director'}</span></div>
         </div>
         {inGame && <div className="director-actions">
-          {state.events.length > 0 && <button className="event-alert" onClick={() => setTab('week')}>{state.events.length} opportunity{state.events.length === 1 ? '' : 'ies'}</button>}
+          {state.events.length > 0 && <button className="event-alert" onClick={() => setTab('opportunities')}>{state.events.length} opportunity{state.events.length === 1 ? '' : 'ies'}</button>}
           <button className="next-week-btn" onClick={onNextWeek}>Open next week →</button>
         </div>}
       </header>
@@ -343,7 +353,7 @@ function Shell({
             {group.items.map(([id, label, icon]) => <button key={id}
               className={'nav-action' + (tab === id ? ' active' : '')}
               onClick={() => setTab(id)}><span>{icon}</span>{label}
-              {id === 'week' && state.events.length > 0 && <b>{state.events.length}</b>}
+              {id === 'opportunities' && state.events.length > 0 && <b>{state.events.length}</b>}
             </button>)}
           </div>)}
         </aside>}
@@ -733,16 +743,6 @@ function GalleriesTab({
   const [selectedRoom, setSelectedRoom] = useState<number | null>(null);
   const [heldArt, setHeldArt] = useState<string | null>(null);
   const [sellArt, setSellArt] = useState<string | null>(null);
-  // which wing of the active museum is being viewed, and the
-  // wing-rename dialog target (a hallId, or null)
-  const [selectedWing, setSelectedWing] = useState<string>(
-    building.halls[0]?.id || '');
-  const [renamingWing, setRenamingWing] = useState<string | null>(null);
-  const [wingNameDraft, setWingNameDraft] = useState('');
-  // if the active museum changed, snap the wing back to its first
-  if (building.halls.length && !building.halls.some(h => h.id === selectedWing)) {
-    setSelectedWing(building.halls[0].id);
-  }
 
   const placedSet = new Set(museum.rooms.flatMap(r => r.items));
   const unplaced = state.owned.filter(id => !placedSet.has(id));
@@ -770,11 +770,6 @@ function GalleriesTab({
   };
   // loans of the active museum not yet on display
   const pendingLoans = museum.loans.filter(l => l.roomId === null);
-
-  const halls: Record<string, { name: string; rooms: Room[] }> = {};
-  for (const r of museum.rooms)
-    (halls[r.hallId] = halls[r.hallId] || { name: r.hallName, rooms: [] })
-      .rooms.push(r);
 
   return (
     <>
@@ -808,28 +803,70 @@ function GalleriesTab({
         museum={museum}
         buildingName={building.name}
         selectedRoom={selectedRoom}
-        onSelectRoom={(roomId, hallId) => {
-          setSelectedWing(hallId);
-          setSelectedRoom(roomId);
-        }}
+        onSelectRoom={(roomId) => setSelectedRoom(roomId)}
       />
 
       {selectedRoom !== null && (() => {
         const room = museum.rooms.find(r => r.id === selectedRoom);
         if (!room || !room.unlocked) return null;
-        const rr = E.roomRatings(room);
-        return <section className="room-director-panel">
+        const rr = D.detailedRoomRatings(state, room);
+        const perf = D.roomPerformance(state, room);
+        return <section className="room-director-panel unified-exhibition-editor">
           <div className="room-director-head">
             <div>
-              <div className="eyebrow">Selected exhibition</div>
+              <div className="eyebrow">Exhibition editor</div>
               <h3>{room.theme ? STYLES[room.theme].name : 'Unassigned Gallery'} <span>Room {room.id + 1}</span></h3>
+              <p className="empty-note">This is the single place to theme the room, arrange works, and improve its presentation.</p>
             </div>
             <button className="ghost small" onClick={() => setSelectedRoom(null)}>Close</button>
           </div>
           <div className="rating-grid">
             <div className="rating-box"><strong>{rr.artQuality}</strong><span>Art quality</span><small>Works + interpretation</small></div>
             <div className="rating-box"><strong>{rr.attractiveness}</strong><span>Attractiveness</span><small>Cohesion + presentation</small></div>
-            <div className="rating-box"><strong>{rr.cohesion}</strong><span>Cohesion</span><small>Artist, medium and era links</small></div>
+            <div className="rating-box"><strong>{rr.cohesion}</strong><span>Curatorial fit</span><small>How well works support the thesis</small></div>
+          </div>
+          <div className="director-detail-grid">
+            <div className="director-subpanel">
+              <h4>Exhibition thesis</h4>
+              <select value={room.thesis || 'movement'} onChange={e => setState(D.setRoomThesis(state, room.id, e.target.value as D.ThesisId))}>
+                {Object.entries(D.THESES).map(([id,t]) => <option key={id} value={id}>{t.name}</option>)}
+              </select>
+              <p>{D.THESES[(room.thesis || 'movement') as D.ThesisId].blurb}</p>
+            </div>
+            <div className="director-subpanel">
+              <h4>Gallery presentation</h4>
+              <select value={room.decorStyle || 'classic'} onChange={e => setState(D.setRoomDecor(state, room.id, e.target.value as keyof typeof D.DECOR))}>
+                {Object.entries(D.DECOR).map(([id,d]) => <option key={id} value={id}>{d.name}</option>)}
+              </select>
+              <p>Style fit: {rr.decorFit}. Presentation should suit the art rather than use one universal décor.</p>
+            </div>
+            <div className="director-subpanel">
+              <h4>Assigned specialists</h4>
+              <select value={room.assignedCuratorId || ''} onChange={e => setState(D.assignRoomStaff(state, room.id, 'curator', e.target.value || null))}>
+                <option value="">No curator assigned</option>{state.staff.filter(x => x.role === 'curator').map(x => <option key={x.id} value={x.id}>{x.name} · skill {x.skill}</option>)}
+              </select>
+              <select value={room.assignedResearcherId || ''} onChange={e => setState(D.assignRoomStaff(state, room.id, 'researcher', e.target.value || null))}>
+                <option value="">No educator assigned</option>{state.staff.filter(x => x.role === 'researcher').map(x => <option key={x.id} value={x.id}>{x.name} · skill {x.skill}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="exhibition-breakdown">
+            <div><b>{rr.collectionStrength}</b><span>Collection strength</span></div>
+            <div><b>{rr.curatorialDepth}</b><span>Curatorial depth</span></div>
+            <div><b>{rr.interpretation}</b><span>Interpretation</span></div>
+            <div><b>{rr.comfort}</b><span>Comfort</span></div>
+            <div><b>{perf.weeklyVisitors}</b><span>Visitors / week</span></div>
+            <div><b>{perf.satisfaction}★</b><span>Satisfaction</span></div>
+          </div>
+          <div className="exhibition-editor-room">
+            <GalleryRoom state={state} room={room}
+              selected heldArt={heldArt}
+              onSelect={() => undefined}
+              onAssign={st => apply(E.assignRoom(state, room.id, st))}
+              onOpen={() => apply(E.openRoom(state))}
+              onDropArt={artId => placeInto(artId, room.id)}
+              onSlotClick={onArtifact}
+              onRemoveArt={artId => apply(E.removeArtifact(state, artId))} />
           </div>
           <div className="upgrade-row">
             {([
@@ -852,94 +889,16 @@ function GalleriesTab({
         </section>;
       })()}
 
-      {/* wing switcher — show one wing at a time */}
-      <div className="panel" style={{ paddingTop: 10, paddingBottom: 10 }}>
-        <div className="wing-switch">
-          {building.halls.map(h => {
-            const wingRooms = museum.rooms.filter(r => r.hallId === h.id);
-            const openRooms = wingRooms.filter(r => r.unlocked).length;
-            const label = museum.wingNames[h.id] || h.name;
-            return (
-              <span key={h.id}
-                className={'wing-chip'
-                  + (selectedWing === h.id ? ' active' : '')}
-                onClick={() => setSelectedWing(h.id)}>
-                {label}
-                <span className="wing-chip-sub">{openRooms}/{wingRooms.length}</span>
-              </span>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* the selected wing */}
-      {(() => {
-        const hall = halls[selectedWing];
-        if (!hall) return null;
-        const cohesion = E.wingCohesionBonus(museum, selectedWing);
-        return (
-          <div className="gallery-frame">
-            <div className="gallery-hall-label">
-              <span>{museum.wingNames[selectedWing] || hall.name}</span>
-              <button className="ghost small wing-rename-btn"
-                onClick={() => {
-                  setWingNameDraft(museum.wingNames[selectedWing] || '');
-                  setRenamingWing(selectedWing);
-                }}>
-                Rename
-              </button>
-            </div>
-            {cohesion > 0 && (
-              <div className="wing-cohesion">
-                Thematic wing — a cohesive style earns +{cohesion} fame
-                {' '}toward this museum.
-              </div>
-            )}
-            <div className="gallery-rooms">
-              {hall.rooms.map(room => (
-                <GalleryRoom key={room.id} state={state} room={room}
-                  selected={selectedRoom === room.id}
-                  heldArt={heldArt}
-                  onSelect={() => setSelectedRoom(
-                    selectedRoom === room.id ? null : room.id)}
-                  onAssign={st => apply(E.assignRoom(state, room.id, st))}
-                  onOpen={() => apply(E.openRoom(state))}
-                  onDropArt={artId => placeInto(artId, room.id)}
-                  onSlotClick={onArtifact}
-                  onRemoveArt={artId => apply(E.removeArtifact(state, artId))} />
-              ))}
-            </div>
+      {museum.rooms.some(r => !r.unlocked) && (
+        <div className="panel museum-expansion-strip">
+          <div>
+            <h3>Expand the museum</h3>
+            <p className="empty-note">Open the next closed gallery when you need more exhibition space.</p>
           </div>
-        );
-      })()}
-
-      {renamingWing && (
-        <div className="modal-backdrop" onClick={() => setRenamingWing(null)}>
-          <div className="modal" onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 20, marginBottom: 8 }}>Name this wing</h3>
-            <p className="empty-note" style={{ marginBottom: 10 }}>
-              Give the wing a name of your choosing. Leave it blank to restore
-              its default name.
-            </p>
-            <div className="field">
-              <input value={wingNameDraft} maxLength={32}
-                placeholder={building.halls.find(h => h.id === renamingWing)?.name}
-                onChange={e => setWingNameDraft(e.target.value)} />
-            </div>
-            <div className="divider" />
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button onClick={() => {
-                setState(E.renameWing(state, museum.id, renamingWing,
-                  wingNameDraft));
-                setRenamingWing(null);
-              }}>
-                Save Name
-              </button>
-              <button className="ghost" onClick={() => setRenamingWing(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
+          <button disabled={state.funds < START.roomCost}
+            onClick={() => apply(E.openRoom(state))}>
+            Open next room · {money(START.roomCost)}
+          </button>
         </div>
       )}
 
@@ -948,7 +907,7 @@ function GalleriesTab({
         {unplaced.length === 0 ? (
           <p className="empty-note">
             Every work you own is on display. Tap a work on a wall to move it
-            back here; win more at auction from the Week tab.
+            back here; find more through Calendar & Opportunities.
           </p>
         ) : (
           <>
@@ -1392,7 +1351,7 @@ function WeekTab({
   }
   return (
     <div className="panel">
-      <h2>Week {state.week}<span className="sub">the museum calendar</span></h2>
+      <h2>Calendar &amp; Opportunities<span className="sub">Week {state.week}</span></h2>
       {state.research && (
         <p className="empty-note">
           Research in progress: {STYLES[state.research.style].name} —
@@ -1794,109 +1753,21 @@ function ItemCard({ artifact }: { artifact: typeof ARTIFACT_BY_ID[string] }) {
 /* ============================================================
    SPECIALTIES (STYLES) TAB
    ============================================================ */
-function SpecialtiesTab({
-  state, apply,
-}: {
-  state: GameState;
-  apply: (r: { state: GameState; error?: string }) => void;
-}) {
-  const tier = E.researchTier(state);
-  const chk = E.canResearch(state);
-  return (
-    <div className="panel">
-      <h2>Styles<span className="sub">the traditions you master</span></h2>
-      {state.specialties.map(st => (
-        <div className="row" key={st}>
-          <div className="meta">
-            <div className="name">{STYLES[st].name}</div>
-            <div className="info">
-              Events of this style come to your museum each week.
-            </div>
-          </div>
-          <div className="stars">{stars(state.expertise[st] || 0)}</div>
-        </div>
-      ))}
-      <div className="divider" />
-      {state.research ? (
-        <div className="row">
-          <div className="meta">
-            <div className="name">
-              Researching: {STYLES[state.research.style].name}
-            </div>
-            <div className="info">
-              {state.research.weeksLeft} week(s) remaining. A room is reserved.
-            </div>
-          </div>
-        </div>
-      ) : !tier ? (
-        <p className="empty-note">Every style has been mastered.</p>
-      ) : (
-        <>
-          <div className="row">
-            <div className="meta">
-              <div className="name">Research a New Style</div>
-              <div className="info">
-                Requires {tier.fameReq} fame, a {money(tier.fee)} fee, and an
-                open unassigned room. Takes 3–4 weeks.
-              </div>
-            </div>
-          </div>
-          {!chk.ok && <p className="empty-note">{chk.reason}</p>}
-          {STYLE_IDS.filter(s => !state.specialties.includes(s)).map(sid => (
-            <div className="row" key={sid}>
-              <div className="meta">
-                <div className="name">{STYLES[sid].name}</div>
-              </div>
-              <button disabled={!chk.ok}
-                onClick={() => apply(E.startResearch(state, sid))}>
-                Research
-              </button>
-            </div>
-          ))}
-        </>
-      )}
+function SpecialtiesTab({ state, apply }: { state: GameState; apply: (r: { state: GameState; error?: string }) => void; }) {
+  const [selected, setSelected] = useState<StyleId>(state.specialties[0] || 'renaissance');
+  const known = state.specialties.includes(selected);
+  const rs = state.styleResearch?.[selected];
+  const nodes = D.STYLE_RESEARCH_NODES[selected];
+  const tier = E.researchTier(state); const chk = E.canResearch(state);
+  return <>
+    <div className="panel research-hero">
+      <h2>Research &amp; Education<span className="sub">build knowledge around the collection</span></h2>
+      <p className="empty-note">Research is now specific to each art style. It improves labels, exhibition narratives, curator depth, and specialist appeal.</p>
+      <div className="style-research-tabs">{STYLE_IDS.map(id => <button key={id} className={selected===id?'active':''} onClick={()=>setSelected(id)}>{STYLES[id].name}<small>{state.specialties.includes(id)?`${D.styleResearchLevel(state,id)}/6 knowledge`:'Not specialized'}</small></button>)}</div>
     </div>
-  );
-}
-
-/* ============================================================
-   MANAGE TAB — ticket price, advertising, sponsors
-   ============================================================ */
-function ManageTab({
-  state, setState, apply,
-}: {
-  state: GameState;
-  setState: (s: GameState) => void;
-  apply: (r: { state: GameState; error?: string }) => void;
-}) {
-  const [sub, setSub] = useState<'business' | 'expeditions' | 'personnel'>('business');
-  return (
-    <>
-      <div className="panel" style={{ paddingBottom: 10 }}>
-        <h2>Manage<span className="sub">the running of your museum</span></h2>
-        <div className="rank-toggle" style={{ marginBottom: 0 }}>
-          {([
-            ['business', 'Business'],
-            ['expeditions', 'Expeditions'],
-            ['personnel', 'Personnel'],
-          ] as const).map(([id, label]) => (
-            <div key={id}
-              className={'filter-chip' + (sub === id ? ' active' : '')}
-              onClick={() => setSub(id)}>{label}</div>
-          ))}
-        </div>
-      </div>
-      {sub === 'business' && (
-        <BusinessTab state={state} setState={setState} apply={apply} />
-      )}
-      {sub === 'expeditions' && (
-        <ExpeditionsTab state={state} apply={apply} />
-      )}
-      {sub === 'personnel' && (
-        <PersonnelTab state={state} apply={apply} />
-      )}
-    </>
-  );
+    {!known ? <div className="panel"><h3>Establish {STYLES[selected].name} as a specialty</h3><p className="empty-note">First unlock the tradition through institutional research. Afterwards, its six knowledge projects become available.</p><button disabled={!tier || !chk.ok || !!state.research} onClick={()=>apply(E.startResearch(state,selected))}>Research new style{tier?` · ${money(tier.fee)}`:''}</button>{!chk.ok&&<p className="empty-note">{chk.reason}</p>}</div> :
+    <div className="research-tree">{nodes.map((node,i)=>{const done=rs?.completed?.includes(node.id);const active=rs?.activeNode===node.id;const prereq=i===0||rs?.completed?.includes(nodes[i-1].id);return <div className={'research-node '+(done?'complete ':active?'active ':'') } key={node.id}><div className="research-node-step">{done?'✓':i+1}</div><div><h3>{node.name}</h3><p>{node.effect}</p><small>{node.weeks} weeks · {money(node.cost)}</small></div><button disabled={done||active||!prereq||!!rs?.activeNode||state.funds<node.cost} onClick={()=>apply(D.startStyleResearch(state,selected,node.id))}>{done?'Complete':active?`${rs?.weeksLeft} weeks left`:'Begin'}</button></div>})}</div>}
+  </>;
 }
 
 /* ============================================================
@@ -2188,8 +2059,7 @@ function ExpeditionsTab({
         <div className="panel">
           <h2>Returned<span className="sub">ready to play out</span></h2>
           <p className="empty-note">
-            {ready.length} expedition(s) have returned — play out the dig from
-            the Week tab.
+            {ready.length} expedition(s) have returned — play out the result from Calendar & Opportunities.
           </p>
         </div>
       )}
@@ -2810,8 +2680,20 @@ function BusinessTab({
   // the last 10 weeks of history for the charts
   const last10 = state.history.slice(-10);
 
+  const report = state.weeklyReport;
+  const segments = D.visitorSegments(state);
   return (
     <>
+      <div className="panel weekly-director-report">
+        <h2>Director's Weekly Brief<span className="sub">what changed and what needs attention</span></h2>
+        {report ? <><div className="report-headline">{report.headline}</div><div className="report-kpis"><div><b>{report.visitors.toLocaleString()}</b><span>audience demand</span></div><div><b>{money(report.profit)}</b><span>operating result</span></div><div><b>{state.memberships || 0}</b><span>members</span></div></div>{report.notes.map((n,i)=><p key={i} className="report-note">{n}</p>)}</> : <p className="empty-note">Advance one week to receive the first connected business report.</p>}
+      </div>
+      <div className="panel">
+        <h2>Visitor Audiences<span className="sub">who the museum currently serves</span></h2>
+        <div className="segment-grid">{Object.entries(segments).map(([k,v])=><div key={k}><b>{v}</b><span>{k}</span><div className="segment-bar"><i style={{width:Math.min(100,v)+'%'}} /></div></div>)}</div>
+      </div>
+      <TemporaryExhibitionsPanel state={state} apply={apply} />
+
       <div className="panel">
         <h2>Museum Trends<span className="sub">the last 10 weeks</span></h2>
         <WeekChart label="Average Daily Visitors" color="#2f6485"
@@ -2873,6 +2755,16 @@ function BusinessTab({
 }
 
 /* the Sponsors panel — court term-based building & wing sponsors */
+function TemporaryExhibitionsPanel({state,apply}:{state:GameState;apply:(r:{state:GameState;error?:string})=>void}) {
+  const [roomId,setRoomId]=useState<number>(E.activeMuseum(state).rooms.find(r=>r.unlocked&&r.items.length>=2)?.id ?? -1);
+  const [name,setName]=useState(''); const [weeks,setWeeks]=useState(6); const [marketing,setMarketing]=useState(2500); const [surcharge,setSurcharge]=useState(4);
+  const eligible=E.activeMuseum(state).rooms.filter(r=>r.unlocked&&r.items.length>=2&&r.theme);
+  return <div className="panel"><h2>Temporary Exhibitions<span className="sub">major visitor and revenue peaks</span></h2>
+    {(state.temporaryExhibitions||[]).map(x=><div className="row" key={x.id}><div className="meta"><div className="name">{x.name}</div><div className="info">{STYLES[x.style].name} · {x.weeksLeft} weeks left · Quality {x.quality} · Attraction {x.attractiveness}</div></div></div>)}
+    {eligible.length===0?<p className="empty-note">Create a themed room with at least two works before planning a temporary exhibition.</p>:<div className="temp-exhibition-form"><label>Gallery<select value={roomId} onChange={e=>setRoomId(Number(e.target.value))}>{eligible.map(r=><option key={r.id} value={r.id}>{STYLES[r.theme!].name} · Room {r.id+1}</option>)}</select></label><label>Exhibition name<input value={name} onChange={e=>setName(e.target.value)} placeholder="A compelling exhibition title" /></label><label>Duration<select value={weeks} onChange={e=>setWeeks(Number(e.target.value))}><option value={4}>4 weeks</option><option value={6}>6 weeks</option><option value={10}>10 weeks</option></select></label><label>Marketing<select value={marketing} onChange={e=>setMarketing(Number(e.target.value))}><option value={0}>Organic only</option><option value={2500}>City campaign · {money(2500)}</option><option value={6000}>Blockbuster campaign · {money(6000)}</option></select></label><label>Surcharge<input type="number" min="0" max="20" value={surcharge} onChange={e=>setSurcharge(Number(e.target.value))}/></label><button onClick={()=>apply(D.launchTemporaryExhibition(state,roomId,name,weeks,marketing,surcharge))}>Open Exhibition · {money(2500+marketing)}</button></div>}
+  </div>;
+}
+
 function SponsorsPanel({
   state, apply, museum, building,
 }: {
@@ -3010,7 +2902,7 @@ type RankRec = {
   you?: boolean;
 };
 
-function CompetitorsTab({ state }: { state: GameState }) {
+function CompetitorsTab({ state, apply }: { state: GameState; apply: (r: {state: GameState; error?: string}) => void }) {
   const [scope, setScope] = useState<'city' | 'global'>('city');
   const [metric, setMetric] = useState<'fame' | 'quality' | 'visitors'>('fame');
 
@@ -3044,7 +2936,7 @@ function CompetitorsTab({ state }: { state: GameState }) {
     id: r.id, name: r.name, sub: 'Rival curator — Your City',
     fame: r.fame, quality: r.quality, visitors: Math.round(r.visitors / 7),
   }));
-  const staticRecs: RankRec[] = STATIC_MUSEUMS
+  const staticRecs: RankRec[] = D.dynamicMuseumRows(state)
     .filter(m => scope === 'global' ? true : m.inYourCity)
     .map(m => ({
       id: m.id, name: m.name,
@@ -3108,82 +3000,112 @@ function CodexTab({
   state: GameState;
   onArtifact: (id: string) => void;
 }) {
+  const [query, setQuery] = useState('');
   const [fRarity, setFRarity] = useState<string>('all');
-  const [fType, setFType] = useState<string>('all');
   const [fStyle, setFStyle] = useState<string>('all');
 
-  const owned = new Set(state.owned);
-
-  const list = ARTIFACTS.filter(a => {
-    if (fRarity !== 'all' && rarityForScore(a.score).id !== fRarity) return false;
-    if (fType !== 'all' && a.type !== fType) return false;
-    if (fStyle !== 'all' && a.style !== fStyle) return false;
-    return true;
+  const displayLocation = new Map<string, string>();
+  state.museums.forEach(museum => {
+    museum.rooms.forEach(room => {
+      room.items.forEach(id => displayLocation.set(
+        id,
+        `${museum.name || state.galleryName} · Room ${room.id + 1}`,
+      ));
+    });
   });
 
+  const q = query.trim().toLowerCase();
+  const list = state.owned
+    .map(id => ARTIFACT_BY_ID[id])
+    .filter(Boolean)
+    .filter(a => {
+      if (fRarity !== 'all' && rarityForScore(a.score).id !== fRarity) return false;
+      if (fStyle !== 'all' && a.style !== fStyle) return false;
+      if (q && !`${a.name} ${a.author || ''} ${a.type} ${STYLES[a.style].name}`
+        .toLowerCase().includes(q)) return false;
+      return true;
+    })
+    .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name));
+
+  const displayed = state.owned.filter(id => displayLocation.has(id)).length;
+  const stored = state.owned.length - displayed;
+  const totalValue = state.owned.reduce(
+    (sum, id) => sum + (ARTIFACT_BY_ID[id]?.value || 0), 0,
+  );
+
   return (
-    <div className="panel">
-      <h2>The Codex<span className="sub">every known work</span></h2>
-      <p className="empty-note">
-        Works you have not acquired are catalogued but unidentified — only
-        their rarity, type and style are known.
-      </p>
+    <div className="museum-page vault-page">
+      <section className="page-hero compact">
+        <div>
+          <div className="eyebrow">Collection</div>
+          <h2>Collection Vault</h2>
+          <p>Only artworks owned by your institution appear here.</p>
+        </div>
+        <div className="page-metrics">
+          <div><strong>{state.owned.length}</strong><span>Owned</span></div>
+          <div><strong>{displayed}</strong><span>Displayed</span></div>
+          <div><strong>{stored}</strong><span>In storage</span></div>
+          <div><strong>{money(totalValue)}</strong><span>Collection value</span></div>
+        </div>
+      </section>
 
-      <div className="filter-group-label">Rarity</div>
-      <div className="filter-bar">
-        <Chip on={fRarity === 'all'} onClick={() => setFRarity('all')}>All</Chip>
-        {RARITY_BANDS.map(b => (
-          <Chip key={b.id} on={fRarity === b.id}
-            onClick={() => setFRarity(b.id)}>{b.name}</Chip>
-        ))}
-      </div>
+      <section className="museum-toolbar">
+        <label className="vault-search">
+          <span>Search collection</span>
+          <input value={query} onChange={e => setQuery(e.target.value)}
+            placeholder="Artwork, artist, type or style" />
+        </label>
+        <div className="toolbar-filter">
+          <span>Rarity</span>
+          <select value={fRarity} onChange={e => setFRarity(e.target.value)}>
+            <option value="all">All rarities</option>
+            {RARITY_BANDS.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+        <div className="toolbar-filter">
+          <span>Style</span>
+          <select value={fStyle} onChange={e => setFStyle(e.target.value)}>
+            <option value="all">All styles</option>
+            {STYLE_IDS.map(id => <option key={id} value={id}>{STYLES[id].name}</option>)}
+          </select>
+        </div>
+      </section>
 
-      <div className="filter-group-label">Type</div>
-      <div className="filter-bar">
-        <Chip on={fType === 'all'} onClick={() => setFType('all')}>All</Chip>
-        {ART_TYPES.map(t => (
-          <Chip key={t} on={fType === t} onClick={() => setFType(t)}>{t}</Chip>
-        ))}
-      </div>
-
-      <div className="filter-group-label">Style</div>
-      <div className="filter-bar">
-        <Chip on={fStyle === 'all'} onClick={() => setFStyle('all')}>All</Chip>
-        {STYLE_IDS.map(s => (
-          <Chip key={s} on={fStyle === s}
-            onClick={() => setFStyle(s)}>{STYLES[s].name}</Chip>
-        ))}
-      </div>
-
-      <div className="codex-count">
-        {list.length} work(s) · {list.filter(a => owned.has(a.id)).length} in your collection
-      </div>
-      <div>
-        {list.map(a => {
-          const isOwned = owned.has(a.id);
-          const band = rarityForScore(a.score);
-          return (
-            <div key={a.id} className="codex-row"
-              style={{ cursor: isOwned ? 'pointer' : 'default' }}
-              onClick={() => { if (isOwned) onArtifact(a.id); }}>
-              <div className="codex-id">{a.id}</div>
-              <div className="codex-body">
-                <div className={'codex-name' + (isOwned ? '' : ' locked')}>
-                  {isOwned ? a.name : '??????'}
-                </div>
-                <div className="codex-sub">
-                  {a.type} · {STYLES[a.style].name}
-                  {isOwned ? ` · ${a.year}` : ''}
-                </div>
-              </div>
-              <span className={'pill ' + band.cls}>{band.name}</span>
-            </div>
-          );
-        })}
-        {list.length === 0 && (
-          <p className="empty-note">No works match these filters.</p>
-        )}
-      </div>
+      {list.length === 0 ? (
+        <section className="museum-empty-state">
+          <strong>No owned works match these filters.</strong>
+          <span>Acquire art through auctions, exploration, loans, or private opportunities.</span>
+        </section>
+      ) : (
+        <section className="vault-grid">
+          {list.map(art => {
+            const band = rarityForScore(art.score);
+            const location = displayLocation.get(art.id);
+            const issue = state.salvageOnly.includes(art.id) ? 'Forgery / salvage only'
+              : state.restorationOwed[art.id] ? 'Restoration required'
+              : state.stolenUndeclared[art.id] ? 'Declaration required'
+              : null;
+            return (
+              <button key={art.id} className="vault-card" onClick={() => onArtifact(art.id)}>
+                <Thumb artifact={art} size="lg" />
+                <span className="vault-card-body">
+                  <span className="vault-card-topline">
+                    <span className={'pill ' + band.cls}>{band.name}</span>
+                    <span className="vault-score">Quality {art.score}</span>
+                  </span>
+                  <strong>{art.name}</strong>
+                  <span>{art.author || 'Unknown artist'} · {art.year}</span>
+                  <span>{art.type} · {STYLES[art.style].name}</span>
+                  <span className={'vault-location' + (location ? ' displayed' : '')}>
+                    {issue || location || 'In storage'}
+                  </span>
+                  <span className="vault-value">{money(art.value)}</span>
+                </span>
+              </button>
+            );
+          })}
+        </section>
+      )}
     </div>
   );
 }
