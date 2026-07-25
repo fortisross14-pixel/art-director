@@ -1116,3 +1116,55 @@ button, .filter-chip, .wing-chip, .tab {
   .pixel-room-grid { grid-template-columns:1fr; }
   .pixel-building { min-height:760px; }
 }
+
+/* ============================================================
+   DIRECTOR UI REVAMP — floor-first Kairosoft-inspired management
+   ============================================================ */
+body { padding-bottom: 0; background: #e8d7b7; }
+.game-shell { min-height: 100vh; background: linear-gradient(#d9c397 0 104px, #eadfc9 104px); }
+.director-bar { position: sticky; top: 0; height: 64px; padding: 7px 14px; background: #31485b; border-bottom: 4px solid #20313e; box-shadow: 0 3px 0 rgba(255,255,255,.18) inset; }
+.brand-block { display:flex; align-items:center; gap:10px; cursor:pointer; }
+.brand-mark { width:42px; height:42px; display:grid; place-items:center; border-radius:9px; background:#e7b84e; color:#253846; border:3px solid #f9e39a; box-shadow:0 3px 0 #9c6d28; font-family:'Cormorant Garamond',serif; font-weight:800; font-size:17px; }
+.director-bar h1 { font-family:Inter,sans-serif; font-size:17px; line-height:1.05; }
+.director-actions { display:flex; align-items:center; gap:8px; }
+.event-alert { background:#b84d3b; border-color:#7e2e26; box-shadow:0 3px 0 #72271f; }
+.next-week-btn { border:2px solid #f7dfa0; box-shadow:0 3px 0 #765322; border-radius:9px; }
+.kpi-ribbon { display:grid; grid-template-columns:repeat(6,minmax(100px,1fr)); gap:7px; padding:8px 12px; background:#f2e1b9; border-bottom:3px solid #b59a67; overflow-x:auto; }
+.kpi-ribbon .stat { min-width:105px; padding:7px 10px; border:2px solid #c6ab76; border-radius:8px; box-shadow:0 2px 0 #9e875e; background:#fff8e8; }
+.kpi-ribbon .stat .value { font-family:Inter,sans-serif; font-size:16px; font-weight:800; color:#2c4353; }
+.director-layout { display:grid; grid-template-columns:210px minmax(0,1fr); max-width:1440px; margin:0 auto; min-height:calc(100vh - 126px); }
+.director-nav { padding:12px 9px; background:#d3bb8d; border-right:3px solid #a58a59; }
+.nav-group { margin-bottom:14px; }
+.nav-group-title { padding:0 8px 4px; font-size:10px; font-weight:800; letter-spacing:1.2px; color:#66543a; text-transform:uppercase; }
+button.nav-action { width:100%; display:flex; align-items:center; gap:9px; margin:4px 0; padding:9px 10px; border:2px solid #aa8c58; background:#f7e8c9; color:#31485b; border-radius:8px; box-shadow:0 2px 0 #927344; text-align:left; }
+button.nav-action:hover:not(:disabled) { background:#fff4dc; border-color:#7f673e; }
+button.nav-action.active { background:#5d8190; color:#fff; border-color:#314e5c; box-shadow:0 2px 0 #243b47; }
+.nav-action b { margin-left:auto; min-width:20px; padding:1px 5px; border-radius:9px; text-align:center; background:#b64d3b; color:#fff; }
+.director-main { min-width:0; padding:12px; max-width:none; margin:0; }
+.director-main > .panel:first-child { margin-bottom:9px; }
+.panel, .drawer { border:2px solid #b89f70; border-radius:10px; box-shadow:0 3px 0 rgba(115,86,43,.2); }
+.pixel-museum.panel { background:#cce19f; border:3px solid #7f925a; padding:10px; }
+.pixel-building { min-height:430px; border:4px solid #785a39; background:repeating-linear-gradient(90deg,#a87648 0 18px,#ad7d4f 18px 36px); box-shadow:inset 0 0 0 4px #dfbd83; }
+.pixel-room-grid { grid-template-columns:repeat(3,minmax(150px,1fr)); gap:7px; padding:44px 12px 42px; }
+.pixel-room { min-height:145px; border:4px solid #8a6844; border-radius:2px; background:#e8d7b8; box-shadow:inset 0 0 0 3px #fff3d5, 0 3px 0 rgba(75,48,25,.25); color:#31424a; }
+.pixel-room:hover, .pixel-room.selected { border-color:#de9f36; box-shadow:inset 0 0 0 3px #fff3d5,0 0 0 3px #f5ca66; }
+.pixel-wall { min-height:66px; background:#f4e6cb; border-top:4px solid #b99668; border-bottom:4px solid #b99668; }
+.pixel-frame { border:3px solid #714b2b; border-radius:0; background:#577d83; box-shadow:inset 0 0 0 2px #d7a954; }
+.pixel-entrance { border:3px solid #725130; border-bottom:0; background:#4f7b85; color:#fff8de; border-radius:4px 4px 0 0; }
+.pixel-statusbar { background:#fff2c9; border:2px solid #a88a55; color:#4a3b28; font-weight:700; }
+.room-director-panel { margin:10px 0; padding:12px; background:#fff4dc; border:3px solid #a78652; border-radius:10px; box-shadow:0 3px 0 rgba(91,65,31,.2); }
+.room-director-head { display:flex; justify-content:space-between; align-items:start; gap:12px; }
+.room-director-head h3 { font-family:Inter,sans-serif; font-size:18px; }
+.room-director-head h3 span { font-size:12px; color:#867354; font-weight:500; }
+.eyebrow { font-size:10px; text-transform:uppercase; letter-spacing:1px; font-weight:800; color:#967434; }
+.rating-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:10px 0; }
+.rating-box { padding:9px; border:2px solid #c1a671; border-radius:8px; background:#fffaf0; display:grid; grid-template-columns:auto 1fr; column-gap:8px; align-items:center; }
+.rating-box strong { grid-row:1/3; font-size:28px; color:#315364; }
+.rating-box span { font-weight:800; }
+.rating-box small { color:#7a6b54; }
+.upgrade-row { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+.upgrade-card { padding:9px; background:#ead8b4; border:2px solid #b0925d; border-radius:8px; display:flex; flex-direction:column; gap:6px; }
+.upgrade-card small { display:block; min-height:34px; color:#6c5d47; }
+.upgrade-level { color:#4f7880; letter-spacing:3px; }
+@media (max-width:900px){ .director-layout{grid-template-columns:1fr}.director-nav{display:flex;gap:6px;overflow-x:auto;border-right:0;border-bottom:3px solid #a58a59}.nav-group{display:flex;margin:0;gap:4px}.nav-group-title{display:none}button.nav-action{min-width:150px;margin:0}.pixel-room-grid{grid-template-columns:repeat(2,1fr)} }
+@media (max-width:620px){ .director-actions .event-alert{display:none}.kpi-ribbon{grid-template-columns:repeat(6,110px)}.pixel-room-grid{grid-template-columns:1fr}.rating-grid,.upgrade-row{grid-template-columns:1fr}.director-main{padding:7px} }

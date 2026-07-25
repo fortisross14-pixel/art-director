@@ -302,52 +302,58 @@ function Shell({
   hideTabs?: boolean; onExit: () => void; onNextWeek: () => void;
   children: React.ReactNode;
 }) {
-  const tabs: [Tab, string][] = [
-    ['galleries', 'Galleries'], ['map', 'Map'], ['week', 'Week'],
-    ['specialties', 'Styles'], ['manage', 'Manage'],
-    ['competitors', 'Rivals'], ['codex', 'Codex'],
-  ];
   const inGame = state.phase === 'playing';
+  const ratings = E.museumExhibitionRatings(state);
+  const navGroups: { title: string; items: [Tab, string, string][] }[] = [
+    { title: 'Museum', items: [
+      ['galleries', 'Floor Plan', '🏛'], ['week', 'Calendar & Events', '📅'],
+      ['map', 'City & Neighborhoods', '🗺'],
+    ]},
+    { title: 'Director', items: [
+      ['manage', 'Business & Staff', '💼'], ['specialties', 'Research & Styles', '📚'],
+    ]},
+    { title: 'World', items: [
+      ['competitors', 'Museums & Rankings', '🌍'], ['codex', 'Collection Database', '🖼'],
+    ]},
+  ];
   return (
-    <>
-      <header>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <h1 style={{ cursor: 'pointer' }} onClick={onExit}>Museum Wars</h1>
-          <span className="tagline">{state.galleryName || 'a 50-week run'}</span>
+    <div className="game-shell">
+      <header className="director-bar">
+        <div className="brand-block" onClick={onExit}>
+          <div className="brand-mark">MW</div>
+          <div><h1>{state.galleryName || 'Museum Wars'}</h1><span className="tagline">Week {state.week} · {state.playerName || 'Director'}</span></div>
         </div>
-        {inGame && (
-          <button className="next-week-btn" onClick={onNextWeek}>
-            Next Week →
-          </button>
-        )}
+        {inGame && <div className="director-actions">
+          {state.events.length > 0 && <button className="event-alert" onClick={() => setTab('week')}>{state.events.length} opportunity{state.events.length === 1 ? '' : 'ies'}</button>}
+          <button className="next-week-btn" onClick={onNextWeek}>Open next week →</button>
+        </div>}
       </header>
-      <div className="stats">
-        <Stat label="Week" value={String(state.week)} />
-        <Stat label="Funds" value={money(state.funds)} />
-        <Stat label="Fame" value={String(E.totalFame(state))} />
-        <Stat label="Quality" value={String(E.museumQuality(state))} />
+      <div className="kpi-ribbon">
+        <Stat label="Cash" value={money(state.funds)} />
+        <Stat label="Visitors" value={state.history.length ? String(state.history[state.history.length - 1].dailyVisitors) + '/day' : 'Opening'} />
         <Stat label="Revenue" value={money(state.lastRevenue)} />
-        <Stat label="Upkeep" value={money(state.lastExpenses)} />
+        <Stat label="Art quality" value={String(ratings.artQuality)} />
+        <Stat label="Attractiveness" value={String(ratings.attractiveness)} />
+        <Stat label="World fame" value={String(E.totalFame(state))} />
       </div>
-      {!hideTabs && (
-        <div className="tabs">
-          {tabs.map(([id, label]) => (
-            <div key={id} className={'tab' + (tab === id ? ' active' : '')}
-              onClick={() => setTab(id)}>{label}</div>
-          ))}
-        </div>
-      )}
-      <main>{children}</main>
-    </>
+      <div className="director-layout">
+        {!hideTabs && <aside className="director-nav">
+          {navGroups.map(group => <div className="nav-group" key={group.title}>
+            <div className="nav-group-title">{group.title}</div>
+            {group.items.map(([id, label, icon]) => <button key={id}
+              className={'nav-action' + (tab === id ? ' active' : '')}
+              onClick={() => setTab(id)}><span>{icon}</span>{label}
+              {id === 'week' && state.events.length > 0 && <b>{state.events.length}</b>}
+            </button>)}
+          </div>)}
+        </aside>}
+        <main className="director-main">{children}</main>
+      </div>
+    </div>
   );
 }
 function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="stat">
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
-    </div>
-  );
+  return <div className="stat"><div className="label">{label}</div><div className="value">{value}</div></div>;
 }
 
 /* ============================================================
@@ -807,6 +813,44 @@ function GalleriesTab({
           setSelectedRoom(roomId);
         }}
       />
+
+      {selectedRoom !== null && (() => {
+        const room = museum.rooms.find(r => r.id === selectedRoom);
+        if (!room || !room.unlocked) return null;
+        const rr = E.roomRatings(room);
+        return <section className="room-director-panel">
+          <div className="room-director-head">
+            <div>
+              <div className="eyebrow">Selected exhibition</div>
+              <h3>{room.theme ? STYLES[room.theme].name : 'Unassigned Gallery'} <span>Room {room.id + 1}</span></h3>
+            </div>
+            <button className="ghost small" onClick={() => setSelectedRoom(null)}>Close</button>
+          </div>
+          <div className="rating-grid">
+            <div className="rating-box"><strong>{rr.artQuality}</strong><span>Art quality</span><small>Works + interpretation</small></div>
+            <div className="rating-box"><strong>{rr.attractiveness}</strong><span>Attractiveness</span><small>Cohesion + presentation</small></div>
+            <div className="rating-box"><strong>{rr.cohesion}</strong><span>Cohesion</span><small>Artist, medium and era links</small></div>
+          </div>
+          <div className="upgrade-row">
+            {([
+              ['decoration', 'Decoration', 'Wall finish, lighting and visual identity'],
+              ['interpretation', 'Learning content', 'Labels, wall texts and audio guide'],
+              ['amenities', 'Visitor comfort', 'Benches, circulation and viewing space'],
+            ] as [E.RoomUpgrade, string, string][]).map(([kind, label, desc]) => {
+              const level = room[kind] || 0;
+              const cost = E.roomUpgradeCost(room, kind);
+              return <div className="upgrade-card" key={kind}>
+                <div><b>{label}</b><small>{desc}</small></div>
+                <div className="upgrade-level">{'●'.repeat(level)}{'○'.repeat(3-level)}</div>
+                <button className="small" disabled={level >= 3 || state.funds < cost}
+                  onClick={() => apply(E.upgradeRoom(state, room.id, kind))}>
+                  {level >= 3 ? 'Complete' : `Improve · ${money(cost)}`}
+                </button>
+              </div>;
+            })}
+          </div>
+        </section>;
+      })()}
 
       {/* wing switcher — show one wing at a time */}
       <div className="panel" style={{ paddingTop: 10, paddingBottom: 10 }}>

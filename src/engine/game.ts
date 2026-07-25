@@ -37,6 +37,7 @@ export function makeRooms(buildingId: string): Room[] {
         id: n++, hallId: hall.id, hallName: hall.name,
         unlocked: i < hall.startRooms,
         theme: null, researching: null, items: [],
+        decoration: 0, interpretation: 0, amenities: 0,
       });
     }
   }
@@ -1341,6 +1342,75 @@ export function runAdCampaign(s: GameState, museumId?: string): Result {
   return { state: next };
 }
 
+/* --- exhibition presentation ------------------------------ */
+export type RoomUpgrade = 'decoration' | 'interpretation' | 'amenities';
+
+export function roomRatings(room: Room): {
+  artQuality: number; attractiveness: number; cohesion: number;
+} {
+  const works = room.items.map(id => ARTIFACT_BY_ID[id]).filter(Boolean);
+  if (!room.unlocked || !room.theme || works.length === 0)
+    return { artQuality: 0, attractiveness: 0, cohesion: 0 };
+
+  const avgScore = works.reduce((n, a) => n + a.score, 0) / works.length;
+  const interpretation = room.interpretation || 0;
+  const decoration = room.decoration || 0;
+  const amenities = room.amenities || 0;
+
+  let relatedPairs = 0;
+  let pairWeight = 0;
+  for (let i = 0; i < works.length; i++) {
+    for (let j = i + 1; j < works.length; j++) {
+      pairWeight++;
+      let link = 0.42; // sharing the room's broad movement/style
+      if (works[i].author === works[j].author) link += 0.28;
+      if (works[i].type === works[j].type) link += 0.14;
+      const y1 = Number(String(works[i].year).match(/\d{3,4}/)?.[0] || 0);
+      const y2 = Number(String(works[j].year).match(/\d{3,4}/)?.[0] || 0);
+      if (y1 && y2 && Math.abs(y1 - y2) <= 35) link += 0.16;
+      relatedPairs += Math.min(1, link);
+    }
+  }
+  const cohesion = works.length === 1 ? 72 : Math.round((relatedPairs / Math.max(1, pairWeight)) * 100);
+  const artQuality = Math.round(Math.min(100,
+    16 + Math.sqrt(avgScore) * 5.1 + interpretation * 9 + Math.min(works.length, 5) * 3));
+  const attractiveness = Math.round(Math.min(100,
+    12 + cohesion * 0.48 + decoration * 10 + amenities * 6 + Math.min(works.length, 5) * 3));
+  return { artQuality, attractiveness, cohesion };
+}
+
+export function museumExhibitionRatings(s: GameState, museumId?: string) {
+  const mus = museumId ? museumById(s, museumId) : activeMuseum(s);
+  const rated = mus.rooms.filter(r => r.unlocked && r.items.length).map(roomRatings);
+  if (!rated.length) return { artQuality: 0, attractiveness: 0 };
+  return {
+    artQuality: Math.round(rated.reduce((n, r) => n + r.artQuality, 0) / rated.length),
+    attractiveness: Math.round(rated.reduce((n, r) => n + r.attractiveness, 0) / rated.length),
+  };
+}
+
+export function roomUpgradeCost(room: Room, kind: RoomUpgrade): number {
+  const level = room[kind] || 0;
+  const base = kind === 'decoration' ? 1800 : kind === 'interpretation' ? 1400 : 1100;
+  return Math.round(base * Math.pow(1.8, level));
+}
+
+export function upgradeRoom(s: GameState, roomId: number, kind: RoomUpgrade): Result {
+  const room = activeMuseum(s).rooms.find(r => r.id === roomId);
+  if (!room || !room.unlocked) return { state: s, error: 'Select an open exhibition room.' };
+  const level = room[kind] || 0;
+  if (level >= 3) return { state: s, error: 'That room upgrade is already at its maximum level.' };
+  const cost = roomUpgradeCost(room, kind);
+  if (s.funds < cost) return { state: s, error: `This improvement costs ${money(cost)}.` };
+  let next = fork(s);
+  next.funds -= cost;
+  const target = activeMuseum(next).rooms.find(r => r.id === roomId)!;
+  target[kind] = level + 1;
+  const label = kind === 'interpretation' ? 'learning content' : kind;
+  next = logged(next, { kind: 'good', text: `Improved ${label} in ${target.theme ? STYLES[target.theme].name : 'the gallery'} (level ${level + 1}).` });
+  return { state: next };
+}
+
 /* --- derived stats ----------------------------------------- */
 /** total quality = sum of all placed artifact scores */
 export function museumQuality(s: GameState, museumId?: string): number {
@@ -1414,7 +1484,12 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
   total += mus.rooms.filter(roomIsFull).length * 7;
   // a curator makes the museum a draw in its own right
   total += specialtySkill(s, 'publicist') * 14;
-  return total * BUILDINGS[mus.buildingId].prestige;
+  // Presentation now matters alongside raw collection strength. A brilliant
+  // collection in incoherent, bare rooms underperforms; strong curation and
+  // interpretation turn quality into attendance.
+  const ratings = museumExhibitionRatings(s, mus.id);
+  const presentationMult = 0.72 + ratings.attractiveness / 250 + ratings.artQuality / 500;
+  return total * BUILDINGS[mus.buildingId].prestige * presentationMult;
 }
 
 /** weekly visitors for a museum — six open days, shaped by

@@ -88,6 +88,9 @@ export interface Room {
   theme: StyleId | null;             // a room specialises in a STYLE
   researching: { style: StyleId; weeksLeft: number } | null;
   items: string[];
+  decoration?: number;      // 0-3: visual presentation and atmosphere
+  interpretation?: number;  // 0-3: labels, wall texts and audio guides
+  amenities?: number;       // 0-3: benches, circulation and visitor comfort
 }
 
 export type EventKind = 'auction' | 'donation';
