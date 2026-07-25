@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// GitHub Pages: the repo is served at /museum-wars/, so the base
-// path must match for assets to resolve. The live URL is then the
-// repo URL: https://<user>.github.io/museum-wars/
+// Use relative asset paths so the same build works on localhost,
+// GitHub Pages, forks, and repositories with different names.
 export default defineConfig({
   plugins: [react()],
-  base: '/museum-wars/',
+  // Relative assets work on localhost, GitHub Pages, and forks regardless of repo name.
+  base: './',
 })

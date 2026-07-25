@@ -762,7 +762,7 @@ function GalleriesTab({
     const room = museum.rooms.find(r => r.id === roomId)!;
     if (!E.canPlace(room, art.style)) {
       flash(E.roomIsFull(room) ? 'That room is full.'
-        : 'That room is themed to a different style.');
+        : 'That room cannot take this work.');
       return;
     }
     apply(E.placeArtifact({ ...state, pendingItemId: dragId }, roomId));
@@ -793,8 +793,7 @@ function GalleriesTab({
         )}
         {unplaced.length > 0 && (
           <p className="drag-hint">
-            Drag a work from your collection into a grey slot — or tap a work,
-            then tap a slot. A room takes only works of its style.
+            Drag any eligible work from your collection into an open slot — or tap a work, then tap a slot. Off-theme works are allowed, but they reduce cohesion and attractiveness.
           </p>
         )}
       </div>
@@ -1232,7 +1231,7 @@ function GalleryRoom({
       heldStyle = ARTIFACT_BY_ID[heldArt]?.style ?? null;
     }
   }
-  const droppable = !!theme && heldStyle === theme && !E.roomIsFull(room);
+  const droppable = !!theme && !!heldStyle && !E.roomIsFull(room);
 
   if (!theme) {
     return (
@@ -1306,10 +1305,10 @@ function GalleryRoom({
             .filter(w => /[A-Za-z]/.test(w))
             .slice(0, 2).map(w => w[0].toUpperCase()).join('');
           return (
-            <div key={i} className={'slot filled' + (isLoan ? ' on-loan' : '')}
+            <div key={i} className={'slot filled' + (isLoan ? ' on-loan' : '') + (art.style !== theme ? ' off-theme' : '')}
               style={{ ['--rar' as string]: band.hex }}
               title={`${art.name} — ${band.name} (score ${art.score})`
-                + (isLoan ? ' · on loan' : '')}
+                + (isLoan ? ' · on loan' : '') + (art.style !== theme ? ` · off-theme in ${STYLES[theme].name}` : '')}
               onClick={() => onSlotClick(artId)}>
               {!isLoan && (
                 <button className="slot-remove"
@@ -2213,6 +2212,10 @@ function BlackMarketScreen({
   const [dealerLine, setDealerLine] = useState('');
   const [guessedRight, setGuessedRight] = useState<boolean | null>(null);
   const [outcome, setOutcome] = useState<BM.PurchaseOutcome | null>(null);
+  const [researchSpent, setResearchSpent] = useState(0);
+  const [offerPrice, setOfferPrice] = useState(Math.round(offer.ask * 0.72));
+  const [dealerFloor] = useState(() => Math.round(offer.ask * (0.62 + Math.random() * 0.16)));
+  const [dealAgreed, setDealAgreed] = useState(false);
 
   const art = ARTIFACT_BY_ID[offer.artifactId];
   const turnsLeft = offer.researchTurns - turnsUsed;
@@ -2229,9 +2232,10 @@ function BlackMarketScreen({
   const doAction = (actionId: string) => {
     const def = BM.ACTIONS.find(a => a.id === actionId)!;
     if (!canResearch) return;
-    if (state.funds < def.cost) return;
+    if (state.funds < researchSpent + def.cost) return;
     const res = BM.runAction(offer, actionId);
     setResults(r => [...r, res]);
+    setResearchSpent(v => v + def.cost);
     setTurnsUsed(n => n + 1);
     const newPat = patience - 1;
     setPatience(newPat);
@@ -2243,21 +2247,34 @@ function BlackMarketScreen({
   const resolveGuess = (asStolen: boolean) => {
     const right = guess === offer.verdict;
     setGuessedRight(right);
-    const o = BM.purchaseOutcome(offer,
-      asStolen && offer.verdict === 'stolen' ? offer.stolenPrice : askPrice);
+    const dealerPrice = asStolen && offer.verdict === 'stolen'
+      ? offer.stolenPrice : askPrice;
+    const baseOutcome = BM.purchaseOutcome(offer, dealerPrice);
+    const o = { ...baseOutcome, pricePaid: baseOutcome.pricePaid + researchSpent };
     setOutcome(o);
     setPhase('done');
   };
 
   const negotiate = () => {
-    // haggle: the dealer may cut the ask, or refuse and lose patience
-    if (Math.random() < 0.55) {
-      const cut = Math.round(askPrice * (0.1 + Math.random() * 0.15));
-      setAskPrice(p => Math.max(1, p - cut));
-      setDealerLine(`"...Fine. ${money(cut)} off. Not a penny more."`);
+    if (patience <= 0 || dealAgreed) return;
+    const evidenceLeverage = Math.min(0.16, results.length * 0.025);
+    const effectiveFloor = Math.round(dealerFloor * (1 - evidenceLeverage));
+    const acceptance = offerPrice >= effectiveFloor
+      ? 0.88
+      : Math.max(0.12, 0.25 + (offerPrice / Math.max(1, effectiveFloor)) * 0.45);
+    if (Math.random() < acceptance) {
+      setAskPrice(offerPrice);
+      setDealAgreed(true);
+      setDealerLine(`The dealer studies you, then nods. "${money(offerPrice)}. Cash, now."`);
     } else {
-      setPatience(p => Math.max(0, p - 1));
-      setDealerLine('"My price is my price." He looks annoyed.');
+      const newPat = Math.max(0, patience - (offerPrice < effectiveFloor * .78 ? 2 : 1));
+      setPatience(newPat);
+      const counter = Math.max(offerPrice + 1, Math.round((askPrice + effectiveFloor) / 2));
+      setAskPrice(counter);
+      setOfferPrice(Math.round((offerPrice + counter) / 2));
+      setDealerLine(newPat <= 0
+        ? '"No more games. Pay my price or leave."'
+        : `"Too low. I could do ${money(counter)}, and that is my counter."`);
     }
   };
 
@@ -2310,7 +2327,9 @@ function BlackMarketScreen({
         <div className="divider" />
         <div className="bm-money">
           <div><span>True value</span><b>{money(offer.originalValue)}</b></div>
-          <div><span>You paid</span><b>{money(outcome.pricePaid)}</b></div>
+          <div><span>Dealer price</span><b>{money(Math.max(0, outcome.pricePaid - researchSpent))}</b></div>
+          <div><span>Authentication costs</span><b>{money(researchSpent)}</b></div>
+          <div><span>Total invested</span><b>{money(outcome.pricePaid)}</b></div>
           {outcome.restorationFee > 0 && (
             <div><span>Restoration owed</span>
               <b>{money(outcome.restorationFee)}</b></div>
@@ -2392,7 +2411,7 @@ function BlackMarketScreen({
           <div className="bm-actions">
             {BM.ACTIONS.map(a => (
               <button key={a.id} className="bm-action-btn"
-                disabled={state.funds < a.cost}
+                disabled={state.funds < researchSpent + a.cost || results.some(r => r.actionId === a.id)}
                 title={a.blurb}
                 onClick={() => doAction(a.id)}>
                 {a.label}<span className="bm-action-cost">{money(a.cost)}</span>
@@ -2407,6 +2426,26 @@ function BlackMarketScreen({
             : 'No research turns left — make your decision.'}
         </p>
       )}
+
+      <div className="bm-intelligence">
+        <div className="bm-confidence">
+          <span>Case confidence</span>
+          <div className="bm-confidence-track"><i style={{ width: `${Math.min(100, results.length * 18 + 8)}%` }} /></div>
+          <b>{results.length < 2 ? 'Thin evidence' : results.length < 4 ? 'Developing case' : 'Strong dossier'}</b>
+        </div>
+        <div className="bm-negotiation">
+          <div className="filter-group-label">Negotiate the dealer price</div>
+          <p className="empty-note">Evidence gives you leverage. A very low offer risks ending the meeting.</p>
+          <input type="range" min={Math.max(1, Math.round(offer.ask * .35))} max={askPrice}
+            step={Math.max(50, Math.round(offer.ask / 100))} value={Math.min(offerPrice, askPrice)}
+            disabled={dealAgreed || patience <= 0}
+            onChange={e => setOfferPrice(Number(e.target.value))} />
+          <div className="bm-offer-row"><b>Your offer: {money(offerPrice)}</b><span>Current ask: {money(askPrice)}</span></div>
+          <button className="ghost" onClick={negotiate} disabled={dealAgreed || patience <= 0}>
+            {dealAgreed ? 'Price agreed' : 'Make this offer'}
+          </button>
+        </div>
+      </div>
 
       <div className="divider" />
 
@@ -2427,10 +2466,6 @@ function BlackMarketScreen({
       <div className="bm-decide">
         <button disabled={!guess} onClick={() => resolveGuess(true)}>
           Buy on This Verdict
-        </button>
-        <button className="ghost" onClick={negotiate}
-          disabled={patience <= 0}>
-          Negotiate Price
         </button>
         <button className="ghost" onClick={onClose}>Pass</button>
       </div>

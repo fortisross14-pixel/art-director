@@ -137,8 +137,8 @@ export function newGame(): GameState {
 /* --- helpers ----------------------------------------------- */
 export const roomIsFull = (r: Room) => r.items.length >= ROOM_CAPACITY;
 export const roomReady = (r: Room) => r.unlocked && !r.researching;
-export const canPlace = (r: Room, style: StyleId) =>
-  roomReady(r) && r.theme === style && !roomIsFull(r);
+export const canPlace = (r: Room, _style: StyleId) =>
+  roomReady(r) && !!r.theme && !roomIsFull(r);
 export const hasOpenSlotFor = (s: GameState, style: StyleId) =>
   activeMuseum(s).rooms.some(r => canPlace(r, style));
 
@@ -689,7 +689,7 @@ export function placeArtifact(s: GameState, roomId: number): Result {
     r.id === roomId ? { ...r, items: [...r.items, art.id] } : r);
   next.pendingItemId = null;
   next = logged(next, { kind: 'good',
-    text: `Placed ${art.name} in a ${STYLES[art.style].name} room.` });
+    text: `Placed ${art.name} in the ${STYLES[room.theme!].name} gallery.` });
   const filled = activeMuseum(next).rooms.find(r => r.id === roomId)!;
   if (roomIsFull(filled)) {
     const quality = filled.items.reduce(
@@ -1371,7 +1371,13 @@ export function roomRatings(room: Room): {
   for (let i = 0; i < works.length; i++) {
     for (let j = i + 1; j < works.length; j++) {
       pairWeight++;
-      let link = 0.42; // sharing the room's broad movement/style
+      // Works may be placed in any themed room. Matching the room theme and
+      // one another creates visual coherence; deliberate mismatches remain legal
+      // but lower attractiveness rather than blocking the player.
+      const iMatches = works[i].style === room.theme;
+      const jMatches = works[j].style === room.theme;
+      let link = iMatches && jMatches ? 0.42
+        : works[i].style === works[j].style ? 0.28 : 0.04;
       if (works[i].author === works[j].author) link += 0.28;
       if (works[i].type === works[j].type) link += 0.14;
       const y1 = Number(String(works[i].year).match(/\d{3,4}/)?.[0] || 0);
@@ -1380,7 +1386,10 @@ export function roomRatings(room: Room): {
       relatedPairs += Math.min(1, link);
     }
   }
-  const cohesion = works.length === 1 ? 72 : Math.round((relatedPairs / Math.max(1, pairWeight)) * 100);
+  const themeMatch = works.filter(a => a.style === room.theme).length / works.length;
+  const pairCohesion = works.length === 1 ? (themeMatch ? 72 : 24)
+    : Math.round((relatedPairs / Math.max(1, pairWeight)) * 100);
+  const cohesion = Math.round(pairCohesion * 0.72 + themeMatch * 100 * 0.28);
   const artQuality = Math.round(Math.min(100,
     16 + Math.sqrt(avgScore) * 5.1 + interpretation * 9 + Math.min(works.length, 5) * 3));
   const attractiveness = Math.round(Math.min(100,
