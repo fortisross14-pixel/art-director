@@ -5,6 +5,7 @@
    ============================================================ */
 import type { GameState, SaveSlot } from '../data/types';
 import { makeCandidates } from './game';
+import { ensureSeason } from './season';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { ROOM_CAPACITY } from '../data/constants';
 
@@ -139,7 +140,7 @@ export function loadSlot(slot: number): SaveSlot | null {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as SaveSlot;
     if (!parsed || typeof parsed.slot !== 'number' || !parsed.state) return null;
-    parsed.state = migrateState(parsed.state);
+    parsed.state = ensureSeason(migrateState(parsed.state));
     return parsed;
   } catch {
     return null;

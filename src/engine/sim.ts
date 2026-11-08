@@ -9,16 +9,28 @@ import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { rarityForScore } from '../data/constants';
 import { advanceWeek, expeditionsReady, unlockedHouses } from './game';
 import { progressDirectorSystems } from './director';
+import { seasonStep, seasonIndexOfWeek, seasonLabel } from './season';
 
 /** one full week: the core sim, then the director systems */
 export function stepWeek(s: GameState): GameState {
-  return progressDirectorSystems(advanceWeek(s));
+  return seasonStep(s, progressDirectorSystems(advanceWeek(s)));
+}
+
+/** Run to the first week of the next season (the review is waiting). */
+export function simToEndOfSeason(s: GameState): { state: GameState; weeks: number; reason: string } {
+  const target = seasonIndexOfWeek(s.week) + 1;
+  let cur = s;
+  let weeks = 0;
+  while (seasonIndexOfWeek(cur.week) < target && weeks < 14) { cur = stepWeek(cur); weeks++; }
+  return { state: cur, weeks, reason: `${seasonLabel(target - 1)} is over — the season review is ready.` };
 }
 
 const RARE_PLUS = new Set(['rare', 'epic', 'legend', 'worldicon']);
 
 /** Why this week deserves attention, or null if it's a quiet one. */
 export function notableReason(prev: GameState, s: GameState): string | null {
+  if (s.lastReview && s.lastReview !== prev.lastReview)
+    return `${s.lastReview.label} is over — the season review is ready.`;
   for (const ev of s.events) {
     if (ev.headlineId) {
       const a = ARTIFACT_BY_ID[ev.headlineId];

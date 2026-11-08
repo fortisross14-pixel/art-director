@@ -1,6 +1,6 @@
 import type { GameState, Room, StyleId } from '../data/types';
 import { STYLES, districtOfBuilding, STATIC_MUSEUMS } from '../data/constants';
-import { activeMuseum, museumById } from './game';
+import { activeMuseum, museumById, initiativeError, spendInitiative } from './game';
 import { roomRatings, DECOR } from './ratings';
 import type { ThesisId } from './ratings';
 import { money, uid } from './util';
@@ -47,11 +47,12 @@ export function setRoomDecor(s:GameState,roomId:number,decor:keyof typeof DECOR)
 export function assignRoomStaff(s:GameState,roomId:number,role:'curator'|'researcher',id:string|null){const n=clone(s); const r=activeMuseum(n).rooms.find(x=>x.id===roomId); if(r){if(role==='curator')r.assignedCuratorId=id;else r.assignedResearcherId=id;} return n;}
 
 export function startStyleResearch(s:GameState,style:StyleId,nodeId:string):{state:GameState;error?:string}{
+ const noInit=initiativeError(s); if(noInit) return {state:s,error:noInit};
  const node=STYLE_RESEARCH_NODES[style].find(n=>n.id===nodeId); if(!node)return{state:s,error:'Research project not found.'};
  const existing=s.styleResearch?.[style]; if(existing?.activeNode)return{state:s,error:'That style already has active research.'};
  if(existing?.completed?.includes(nodeId))return{state:s,error:'That project is already complete.'};
  if(s.funds<node.cost)return{state:s,error:`Research costs ${money(node.cost)}.`};
- const n=clone(s); n.funds-=node.cost; n.styleResearch=n.styleResearch||{}; n.styleResearch[style]={level:(existing?.completed?.length||0),points:0,completed:[...(existing?.completed||[])],activeNode:nodeId,weeksLeft:node.weeks}; return{state:n};
+ const n=clone(s); spendInitiative(n); n.funds-=node.cost; n.styleResearch=n.styleResearch||{}; n.styleResearch[style]={level:(existing?.completed?.length||0),points:0,completed:[...(existing?.completed||[])],activeNode:nodeId,weeksLeft:node.weeks}; return{state:n};
 }
 
 export function progressDirectorSystems(s:GameState):GameState{
@@ -66,8 +67,9 @@ export function progressDirectorSystems(s:GameState):GameState{
 }
 
 export function launchTemporaryExhibition(s:GameState,roomId:number,name:string,weeks:number,marketing:number,surcharge:number):{state:GameState;error?:string}{
+ const noInit=initiativeError(s); if(noInit) return {state:s,error:noInit};
  const room=activeMuseum(s).rooms.find(r=>r.id===roomId); if(!room||!room.theme||room.items.length<2)return{state:s,error:'Use a themed room with at least two artworks.'};
- const cost=2500+marketing; if(s.funds<cost)return{state:s,error:`Opening costs ${money(cost)}.`}; const d=detailedRoomRatings(s,room); const n=clone(s); n.funds-=cost;n.temporaryExhibitions=n.temporaryExhibitions||[];n.temporaryExhibitions.push({id:uid('temp'),name:name||`${STYLES[room.theme].name} Special Exhibition`,style:room.theme,roomId,artifactIds:[...room.items],weeksLeft:weeks,marketing,surcharge,quality:d.artQuality,attractiveness:d.attractiveness});return{state:n};
+ const cost=2500+marketing; if(s.funds<cost)return{state:s,error:`Opening costs ${money(cost)}.`}; const d=detailedRoomRatings(s,room); const n=clone(s); spendInitiative(n); n.funds-=cost;n.temporaryExhibitions=n.temporaryExhibitions||[];n.temporaryExhibitions.push({id:uid('temp'),name:name||`${STYLES[room.theme].name} Special Exhibition`,style:room.theme,roomId,artifactIds:[...room.items],weeksLeft:weeks,marketing,surcharge,quality:d.artQuality,attractiveness:d.attractiveness});return{state:n};
 }
 
 export function relationship(s:GameState,id:string){return s.museumRelations?.[id]||0;}

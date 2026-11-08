@@ -9,6 +9,7 @@ import type { GameState } from '../src/data/types';
 import * as E from '../src/engine/game';
 import * as Auc from '../src/engine/auction';
 import { stepWeek } from '../src/engine/sim';
+import { ensureSeason, leagueRank } from '../src/engine/season';
 import { ARTIFACT_BY_ID } from '../src/data/artifacts';
 import { AUCTION_HOUSES, BUILDINGS, START, rarityForScore } from '../src/data/constants';
 
@@ -164,8 +165,8 @@ function run(verbose: boolean): RunSummary {
   let s = E.newGame();
   const choices = E.foundingArtworkChoices();
   s = E.chooseFoundingArtwork(s, choices[0], choices);
-  s = E.nameGallery(s, 'Sim', 'Sim Gallery', START.defaultTicket);
-  const reached: Record<string, number | null> = { house2: null, house3: null, firstRare: null, firstEpic: null };
+  s = ensureSeason(E.nameGallery(s, 'Sim', 'Sim Gallery', START.defaultTicket));
+  const reached: Record<string, number | null> = { house2: null, house3: null, firstRare: null, firstEpic: null, national: null, world: null };
   const lines: string[] = [];
   let rarePlusLots = 0;
   const crateStats = { crates: 0, bigPulls: 0 };
@@ -183,6 +184,8 @@ function run(verbose: boolean): RunSummary {
     const fame = E.totalFame(s);
     if (reached.house2 === null && fame >= 120) reached.house2 = w;
     if (reached.house3 === null && fame >= 600) reached.house3 = w;
+    if (reached.national === null && s.league === 'national') reached.national = w;
+    if (reached.world === null && s.league === 'world') reached.world = w;
     const best = Math.max(0, ...s.owned.map(id => ARTIFACT_BY_ID[id].score));
     if (reached.firstRare === null && best >= 20 && w > 1) reached.firstRare = w;
     if (reached.firstEpic === null && best >= 50) reached.firstEpic = w;
@@ -193,7 +196,7 @@ function run(verbose: boolean): RunSummary {
         + `  ${String(Math.round(E.totalVisitors(s) / 6)).padStart(4)}/day`
         + `  fame ${String(fame).padStart(4)} (P${Math.round(r.prestige)} Pop${Math.round(r.popularity)} Pat${Math.round(r.patronage)})`
         + `  works ${E.placedCount(s)} rooms ${E.activeMuseum(s).rooms.filter(x => x.unlocked).length} ${E.activeMuseum(s).buildingId}`
-        + `  cousins ${s.rivals.map(x => x.fame).join('/')}`);
+        + `  cousins ${s.rivals.map(x => x.fame).join('/')}  ${s.league} #${leagueRank(s)}`);
     }
   }
   const best = s.owned.map(id => ARTIFACT_BY_ID[id]).sort((a, b) => b.score - a.score)[0];

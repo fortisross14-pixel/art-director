@@ -337,6 +337,15 @@ export interface GameState {
   studies?: AttributionStudy[];
   completedSets?: string[];       // artist sets completed this career
   signatureId?: string | null;    // the museum's poster work
+  season?: SeasonState;
+  lastReview?: SeasonReview | null;
+  annualReports?: AnnualReport[];
+  league?: League;
+  milestones?: Milestone[];
+  milestoneKeys?: string[];
+  stocks?: BudgetStocks;          // what the budget lines have bought, decaying
+  endowment?: number;             // invested reserves; pays a little every week
+  discoveries?: { week: number; artifactId: string }[];  // confirmed sleepers
   phase: Phase;
 }
 
@@ -424,3 +433,66 @@ export interface SaveSlot {
   savedAt: number;                // epoch ms
   state: GameState;
 }
+
+/* --- seasons, budget and the career arc (M3) ---------------- */
+export type BudgetLine = 'acquisitions' | 'exhibitions' | 'marketing' | 'operations' | 'reserves';
+/** how each week's operating surplus is split, in percent (sums to 100) */
+export type BudgetPlan = Record<BudgetLine, number>;
+
+/** spending that keeps working after it's spent, fading weekly */
+export interface BudgetStocks { marketing: number; exhibitions: number; operations: number; }
+
+export interface SeasonSnapshot {
+  week: number;
+  dailyVisitors: number;
+  prestige: number; popularity: number; patronage: number;
+  funds: number;
+  collectionValue: number;
+  rooms: number;
+  works: number;
+  rank: number;           // place in the current league table
+  league: League;
+}
+
+export interface SeasonState {
+  index: number;          // 0 = Spring of Year 1
+  startWeek: number;
+  plan: BudgetPlan;
+  initiativesMax: number;
+  initiativesLeft: number;
+  start: SeasonSnapshot;
+  chronicle: string[];    // notable things that happened this season
+  planned: boolean;       // has the director confirmed this season's plan
+  ownedAtStart: string[]; // to spot this season's acquisitions
+  yearStart: SeasonSnapshot;
+  ownedAtYearStart: string[];
+}
+
+export interface SeasonReview {
+  label: string;          // "Spring, Year 1"
+  start: SeasonSnapshot;
+  end: SeasonSnapshot;
+  causes: string[];       // the biggest reasons things changed
+  chronicle: string[];
+  advice: string | null;
+}
+
+export type League = 'city' | 'national' | 'world';
+
+export interface AnnualReport {
+  year: number;
+  start: SeasonSnapshot;
+  end: SeasonSnapshot;
+  acquisitionOfYear: string | null;   // artifact id
+  discoveryOfYear: string | null;     // artifact id
+  exhibitionOfYear: string | null;    // room label
+  criticStars: number;                // 1..5
+  criticQuote: string;
+  promotedTo: League | null;
+  awards: string[];
+  stage: CareerStage;
+}
+
+export type CareerStage = 'early' | 'mid' | 'late';
+
+export interface Milestone { week: number; text: string; }

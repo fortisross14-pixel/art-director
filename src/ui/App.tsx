@@ -34,6 +34,8 @@ import * as D from '../engine/director';
 import * as Sim from '../engine/sim';
 import * as Att from '../engine/attribution';
 import { CrateScreen, CratesPanel, DustPanel, CatalogueTab } from './crates';
+import * as Season from '../engine/season';
+import { SeasonPanel, AnnualReportPanel, HistoryPanel, TicketPresets } from './season';
 import { money } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
 
@@ -193,22 +195,27 @@ function Game({
   if (state.phase === 'name-gallery') {
     return <NameGallery state={state}
       onConfirm={(pn, gn, ticket) =>
-        setState(E.nameGallery(state, pn, gn, ticket))} />;
+        setState(Season.ensureSeason(E.nameGallery(state, pn, gn, ticket)))} />;
   }
 
   /* --- next week, with skip-events confirm ----------------- */
   const doNextWeek = () => {
     if (state.events.length > 0) { setConfirmSkip(true); return; }
-    setState(D.progressDirectorSystems(E.advanceWeek(state)));
+    setState(Sim.stepWeek(state));
   };
   const confirmSkipYes = () => {
     setConfirmSkip(false);
-    setState(D.progressDirectorSystems(E.advanceWeek(state)));
+    setState(Sim.stepWeek(state));
   };
   const doSimToNext = () => {
     const res = Sim.simToNextOpportunity(state);
     setState(res.state);
     flash(`${res.weeks} week${res.weeks === 1 ? '' : 's'} later — ${res.reason}`);
+  };
+  const doSimSeason = () => {
+    const res = Sim.simToEndOfSeason(state);
+    setState(res.state);
+    flash(res.reason);
   };
   const confirmSkipNo = () => {
     setConfirmSkip(false);
@@ -290,7 +297,7 @@ function Game({
       onExpeditionResult={expId => setExpeditionGame(expId)}
       onGala={() => setGalaOpen(true)}
       onBlackMarket={() => setBlackMarketOpen(true)}
-      onOpenCrate={id => setCrateOpen(id)} apply={apply} />;
+      onOpenCrate={id => setCrateOpen(id)} apply={apply} onSimSeason={doSimSeason} />;
   } else if (tab === 'exploration') {
     body = <ExpeditionsTab state={state} apply={apply} />;
   } else if (tab === 'staff') {
@@ -353,7 +360,7 @@ function Shell({
       <header className="director-bar">
         <div className="brand-block" onClick={onExit}>
           <div className="brand-mark">MW</div>
-          <div><h1>{state.galleryName || 'Museum Wars'}</h1><span className="tagline">Week {state.week} · {state.playerName || 'Director'}</span></div>
+          <div><h1>{state.galleryName || 'Museum Wars'}</h1><span className="tagline">Week {state.week}{state.season ? ` · ${Season.seasonLabel(state.season.index)} · ${state.season.initiativesLeft}/${state.season.initiativesMax} initiatives` : ''}</span></div>
         </div>
         {inGame && <div className="director-actions">
           {(state.crates || []).length > 0 && <button className="event-alert crate-alert" onClick={() => setTab('opportunities')}>▣ {(state.crates || []).length} crate{(state.crates || []).length === 1 ? '' : 's'}</button>}
@@ -1395,8 +1402,9 @@ function GalleryRoom({
    ============================================================ */
 function WeekTab({
   state, setState, flash, goGalleries, onNextWeek, onExpeditionResult, onGala,
-  onBlackMarket, onOpenCrate, apply,
+  onBlackMarket, onOpenCrate, apply, onSimSeason,
 }: {
+  onSimSeason: () => void;
   onOpenCrate: (crateId: string) => void;
   apply: (r: { state: GameState; error?: string }) => void;
   state: GameState;
@@ -1414,6 +1422,8 @@ function WeekTab({
   }
   return (
     <>
+    <SeasonPanel state={state} setState={setState} onSimSeason={onSimSeason} />
+    <AnnualReportPanel state={state} />
     <CratesPanel state={state} apply={apply} onOpen={onOpenCrate} />
     <div className="panel">
       <h2>Calendar &amp; Opportunities<span className="sub">Week {state.week}</span></h2>
@@ -2736,6 +2746,7 @@ function BusinessTab({
       <TemporaryExhibitionsPanel state={state} apply={apply} />
 
       <CareerSoFar state={state} />
+      <HistoryPanel state={state} />
 
       <div className="panel">
         <h2>Museum Trends<span className="sub">the last 10 weeks</span></h2>
@@ -2751,8 +2762,9 @@ function BusinessTab({
         <h2>Ticket Pricing<span className="sub">admission</span></h2>
         <p className="empty-note">
           Visitors follow demand: a high price on a thin collection draws
-          almost no one. The fair price rises as your museum grows.
+          almost no one. The fair price rises as your reputation grows.
         </p>
+        <TicketPresets state={state} setState={setState} />
         <div className="field" style={{ maxWidth: 180 }}>
           <label>Ticket Price (§)</label>
           <input value={priceInput} inputMode="numeric"

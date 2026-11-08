@@ -584,7 +584,7 @@ verify.
 - A first-year player sees at least one purple frame.
 - Per-style shard balances are gone.
 
-### M3 (v1.0): A career
+### M3 (v1.0): A career ✅ shipped (engine-first), see VERSION_10_NOTES.md; 4-hub nav and sponsor tiers moved to M7
 **Scope:** R16–R25.
 - The season loop with budget sliders and initiatives.
 - A review screen with deltas.
