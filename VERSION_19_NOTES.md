@@ -8,3 +8,8 @@ Six game-development skills are installed in `.claude/skills/`. Four come unchan
 - **Gala balance:** goals are one point higher, and a collector who has already lent to you asks for 3 more charm each time.
 - **Accessibility:** a visible keyboard focus ring, no informational text under 11px, and rarity letters alongside colours.
 - **Clear blocked actions:** buttons that can't be used say why, and every price sits under its button's label.
+- **Settings tab (Office → Settings):**
+  - **Motion:** match your device, or reduce motion.
+  - **Text and button size:** Standard, Large or Larger. The whole interface scales.
+  - Both are saved on this device and apply to every save.
+  - At large sizes, the active tab stays in view and the room name keeps its own line.

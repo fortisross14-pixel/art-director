@@ -55,7 +55,11 @@ Goals went up by 1, and each earlier loan from the same collector adds 3 charm t
 - Blocked actions say why: research first, knowledge needed, or how much money is missing.
 - Prices sit under the action on every button.
 
+**Settings, added in a follow-up (Office → Settings)**
+- **Motion:** match the device, or reduce motion. Reduce turns off animations and transitions everywhere: falling frames, bursts and card deals.
+- **Text and button size:** Standard, Large (115%) or Larger (130%). The whole interface scales.
+- Checked at 390 px and Larger: no sideways scrolling on any menu or the gallery.
+- Both settings are stored per device and apply to every save.
+
 ## Not done
-- **Accessibility toggles:** `game-feel` recommends in-game "reduce motion / reduce flashing" settings. The game follows the device setting only.
 - **Screen stack and back gestures** (`game-ui-ux`): overlays are separate flags, and the browser Back button leaves the game.
-- **Text-size option:** not offered (`game-ui-ux`).

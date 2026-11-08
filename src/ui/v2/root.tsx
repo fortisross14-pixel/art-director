@@ -38,7 +38,7 @@ const SUBS: Record<Menu, [string, string][]> = {
   week: [['week', 'This Week'], ['crates', 'Crates'], ['news', 'News']],
   museum: [['floor', 'Floor'], ['collection', 'Collection'], ['catalogue', 'Catalogue'], ['building', 'Building']],
   acquire: [['calendar', 'Calendar'], ['auctions', 'Auctions'], ['expeditions', 'Expeditions'], ['artists', 'Artists']],
-  office: [['plan', 'Plan'], ['money', 'Money'], ['people', 'Staff'], ['research', 'Research'], ['standing', 'Standing']],
+  office: [['plan', 'Plan'], ['money', 'Money'], ['people', 'Staff'], ['research', 'Research'], ['standing', 'Standing'], ['settings', 'Settings']],
 };
 const MENU_LABEL: Record<Menu, string> = { week: 'Week', museum: 'Museum', acquire: 'Acquire', office: 'Office' };
 
@@ -190,7 +190,16 @@ function Game({ slot, initial, onExit }: { slot: number; initial: GameState; onE
       {!full && <nav className="salon-subtabs" aria-label={`${MENU_LABEL[menu]} sections`}>
         {SUBS[menu].map(([id, label]) => {
           const b = menu === 'week' && id === 'week' ? weekBadge : menu === 'week' && id === 'crates' ? (state.crates || []).length : 0;
-          return <button key={id} className={sub[menu] === id ? 'active' : ''} onClick={() => setSub(x => ({ ...x, [menu]: id }))}>
+          return <button key={id} className={sub[menu] === id ? 'active' : ''} aria-current={sub[menu] === id ? 'page' : undefined}
+            ref={sub[menu] === id ? (el => {
+              // keep the active tab in view (centred), also when the interface is zoomed
+              const bar = el?.parentElement;
+              if (el && bar) {
+                const e = el.getBoundingClientRect(), r = bar.getBoundingClientRect();
+                bar.scrollLeft += (e.left + e.width / 2) - (r.left + r.width / 2);
+              }
+            }) : undefined}
+            onClick={() => setSub(x => ({ ...x, [menu]: id }))}>
             {label}{b ? <b>{b}</b> : null}</button>;
         })}
       </nav>}

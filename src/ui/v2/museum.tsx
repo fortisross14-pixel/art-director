@@ -122,8 +122,8 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
       <div className="v2-gtop">
         <button className="v2-round" onClick={onBack} aria-label="Back to the floor">←</button>
         <div className="v2-gname">
-          <label htmlFor="gname">{room.hallName}. Tap the name to change it.</label>
-          <input id="gname" value={name} onChange={e => setName(e.target.value)}
+          <label htmlFor="gname">{room.hallName} <span aria-hidden="true">✎</span></label>
+          <input id="gname" aria-label="Room name (tap to change)" value={name} onChange={e => setName(e.target.value)}
             onBlur={() => setState(E.renameRoom(state, room.id, name.trim() === E.roomName({ ...room, name: undefined }) ? '' : name.trim()))} />
         </div>
         <button className="v2-stylechip" onClick={() => setSheet({ kind: 'thesis' })}>{room.theme ? STYLES[room.theme].name : 'Mixed'}</button>

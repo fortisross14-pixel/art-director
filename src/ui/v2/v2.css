@@ -378,3 +378,14 @@
 .v2-why-line { font-size: 12.5px; color: var(--s-bad); margin: 10px 0 -4px; }
 .v2-owns i { width: 18px; height: 22px; font-style: normal; font-size: 11px; font-weight: 800; color: #1A0E10; display: flex; align-items: center; justify-content: center; }
 .v2-tier .v2-why { font-size: 11px; line-height: 1.2; }
+
+/* --- player settings: interface size and reduced motion --- */
+body.salon { zoom: var(--ui-scale, 1); }
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after {
+  animation-duration: 0.01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+.v2-preview { margin-top: 12px; padding: 12px; border: 1px dashed var(--s-line); }
+.v2-preview b { font-family: var(--s-serif); font-size: 20px; display: block; }
+.v2-preview span { font-size: 13px; color: var(--s-muted); }
+.v2-gtop { flex-wrap: wrap; }
+.v2-gname { flex: 1 1 190px; }
