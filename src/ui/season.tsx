@@ -8,6 +8,7 @@ import type { BudgetPlan, GameState, SeasonSnapshot } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
 import * as S from '../engine/season';
 import * as E from '../engine/game';
+import * as L from '../engine/legacy';
 import { money } from '../engine/util';
 import { BACKGROUNDS } from '../data/identity';
 import { districtOfBuilding } from '../data/constants';
@@ -70,7 +71,39 @@ export function SeasonPanel({ state, setState, onSimSeason, apply }: {
         <button className="ghost" onClick={onSimSeason}>Sim to end of season ⏭</button>
       </div>
       {state.lastReview && <ReviewBlock state={state} />}
+      <LeagueTable state={state} />
+      <RetireButton state={state} setState={setState} />
     </div>
+  );
+}
+
+function LeagueTable({ state }: { state: GameState }) {
+  const league = state.league || 'city';
+  const rows = S.leagueTable(state, league);
+  const me = rows.findIndex(r => r.you);
+  const shown = rows.filter((r, i) => i < 5 || Math.abs(i - me) <= 2 || r.id.startsWith('legacy:'));
+  return (
+    <>
+      <div className="divider" />
+      <h3>{S.LEAGUE_NAMES[league]}</h3>
+      <table className="then-now"><tbody>{shown.map(r => {
+        const i = rows.indexOf(r);
+        return <tr key={r.id}><td>#{i + 1}</td><td>{r.you ? <b>{r.name}</b> : r.name}{r.id.startsWith('legacy:') ? ' · your past museum' : ''}</td><td>{r.fame.toLocaleString()}</td></tr>;
+      })}</tbody></table>
+    </>
+  );
+}
+
+function RetireButton({ state, setState }: { state: GameState; setState: (s: GameState) => void }) {
+  const [sure, setSure] = useState(false);
+  const left = Math.max(0, L.CAREER_YEARS - L.careerYears(state));
+  return (
+    <p className="empty-note">Year {L.careerYears(state)} of {L.CAREER_YEARS}. {left <= 2 && left > 0 ? 'Your career is nearly over. ' : ''}
+      {sure ? <><b>Retire now? The museum goes into the Hall of Fame.</b>{' '}
+        <button onClick={() => setState(L.retire(state))}>Yes, retire</button>{' '}
+        <button className="ghost" onClick={() => setSure(false)}>Not yet</button></>
+        : <button className="ghost" onClick={() => setSure(true)}>Retire…</button>}
+    </p>
   );
 }
 

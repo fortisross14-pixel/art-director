@@ -245,7 +245,8 @@ function run(verbose: boolean): RunSummary {
     final: `fame ${E.totalFame(s)}, funds §${Math.round(s.funds).toLocaleString()}, `
       + `${s.owned.length} works, best ${best.name} (${rarityForScore(best.score).name} ${best.score}), `
       + `rare+ lots seen ${rarePlusLots}, crates ${crateStats.crates} (epic+ pulls ${crateStats.bigPulls}), `
-      + `doubtful works ${Object.keys(s.attributions || {}).length}, sets ${(s.completedSets || []).length}`,
+      + `doubtful works ${Object.keys(s.attributions || {}).length}, sets ${(s.completedSets || []).length}`
+      + (s.careerRecord ? `, RETIRED (${s.careerRecord.reason}) after ${s.careerRecord.years} years, legacy ${s.careerRecord.legacyScore}` : ''),
   };
 }
 

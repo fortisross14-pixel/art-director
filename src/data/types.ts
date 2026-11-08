@@ -354,6 +354,10 @@ export interface GameState {
   artists?: LivingArtist[];
   livingWorks?: Record<string, LivingWork>;
   commissions?: Commission[];
+  /** museums from your earlier careers, now part of the world */
+  legacyMuseums?: LegacyMuseum[];
+  /** filled in when the career ends */
+  careerRecord?: CareerRecord | null;
   phase: Phase;
 }
 
@@ -571,4 +575,43 @@ export interface Commission {
   artistId: string;
   weeksLeft: number;
   price: number;
+}
+
+/* --- legacy (M6) -------------------------------------------- */
+/** one finished career, kept forever in the Hall of Fame */
+export interface CareerRecord {
+  id: string;
+  playerName: string;
+  galleryName: string;
+  background: Background;
+  district: string;
+  museumType: MuseumType;
+  focus: StyleId;
+  endedAt: number;            // epoch ms
+  years: number;
+  reason: 'retired' | 'limit';
+  peakDailyVisitors: number;
+  peakFame: number;
+  finalFame: number;
+  finalLeague: League;
+  finalRank: number;
+  mostValuable: { name: string; author: string; value: number; rarity: string } | null;
+  signature: string | null;
+  collectionValue: number;
+  worksOwned: number;
+  awards: number;
+  discoveries: number;
+  setsCompleted: number;
+  bestCriticStars: number;
+  fundingModel: string;
+  milestones: number;
+  legacyScore: number;
+}
+
+/** a past museum as it appears in a later career's world */
+export interface LegacyMuseum {
+  id: string;
+  name: string;
+  fame: number;
+  league: League;
 }

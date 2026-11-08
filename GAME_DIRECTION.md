@@ -621,15 +621,17 @@ with visibly different revenue mixes and reputation profiles.
 **Done when:** a §3k Year 2 commission can become an Epic+ by about
 Year 10.
 
-### M6 (v1.3): Legacy
-**Scope:** R31–R32.
-- Career length options and retirement.
-- A Hall of Fame.
-- Generated cities and rivals.
-- Legacy museums in later careers.
+### M6 (v1.3): Legacy ✅ shipped, see VERSION_13_NOTES.md
+**Scope** (revised: the current city stays, and careers are capped
+instead of chosen):
+- Retire at any time, or automatically after **35 years**.
+- A **Hall of Fame** on the home screen listing every museum you've
+  built, with all-time records.
+- **Past museums** appear as rival institutions in later careers.
+- Generated cities are dropped for now.
 
-**Done when:** finishing a career leads straight into a new one in a
-different city.
+**Done when:** a finished career shows its summary, appears in the
+Hall of Fame, and is a rival in the next career.
 
 ### M7 (v1.4): Visual identity
 **Scope:** R39–R43.

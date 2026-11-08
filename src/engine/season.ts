@@ -89,6 +89,8 @@ export function leagueTable(s: GameState, league: League): LeagueRow[] {
   const rows: LeagueRow[] = [
     ...statics.map(m => ({ id: m.id, name: m.name, fame: m.fame, you: false, cousin: false })),
     ...s.rivals.map(r => ({ id: r.id, name: `${r.name}'s museum`, fame: r.fame, you: false, cousin: true })),
+    ...(s.legacyMuseums || []).filter(m => league === 'world' || m.league === league)
+      .map(m => ({ id: m.id, name: m.name, fame: m.fame, you: false, cousin: false })),
     { id: 'you', name: s.galleryName, fame: totalFame(s), you: true, cousin: false },
   ];
   return rows.sort((a, b) => b.fame - a.fame);

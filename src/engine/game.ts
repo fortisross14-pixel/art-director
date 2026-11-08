@@ -31,7 +31,7 @@ import {
   CRATE_TIER_NAME, expectedCardValue, ESTATE_FAMILIES, BEQUEST_DONORS,
 } from './crates';
 import { ARTIST_SETS, displayedCompleteSets, setProgress } from './sets';
-import type { Crate, CrateSource, CrateTier, Background, MuseumType, RevenueMix } from '../data/types';
+import type { Crate, CrateSource, CrateTier, Background, MuseumType, RevenueMix, LegacyMuseum } from '../data/types';
 import {
   BACKGROUNDS, MUSEUM_TYPES, MUSEUM_TYPE_OF_STYLE, rulesFor,
 } from '../data/identity';
@@ -265,7 +265,7 @@ export function totalFame(s: GameState): number {
 }
 
 /* --- fresh game -------------------------------------------- */
-export function newGame(): GameState {
+export function newGame(legacyMuseums: LegacyMuseum[] = []): GameState {
   const first = makeMuseum('local', '');
   return {
     playerName: '',
@@ -312,6 +312,8 @@ export function newGame(): GameState {
     completedSets: [],
     signatureId: null,
     artists: makeArtistPool(),
+    legacyMuseums,
+    careerRecord: null,
     livingWorks: {},
     commissions: [],
     phase: 'choose-specialty',

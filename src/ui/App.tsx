@@ -39,6 +39,8 @@ import { BACKGROUNDS, BACKGROUND_IDS, MUSEUM_TYPES, MUSEUM_TYPE_OF_STYLE, rulesF
 import { starterBuilding } from '../data/constants';
 import { SeasonPanel, AnnualReportPanel, HistoryPanel, TicketPresets } from './season';
 import { ArtistsTab } from './artists';
+import * as Legacy from '../engine/legacy';
+import { HallOfFame, CareerCard } from './legacy';
 import { money } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
 
@@ -56,7 +58,8 @@ export default function App() {
   // start a brand-new game in a slot
   const startNew = (s: number) => {
     setSlot(s);
-    setState(E.newGame());
+    // museums from earlier careers become part of the new world
+    setState(E.newGame(Legacy.legacyMuseumsFrom(Legacy.loadHallOfFame())));
   };
   // load an existing slot
   const loadGame = (s: number) => {
@@ -101,7 +104,7 @@ function Home({
           {rec ? (
             <>
               <div className="slot-meta">
-                {rec.playerName} · Week {rec.week} · {rec.fame} fame
+                {rec.playerName} · Week {rec.week} · {rec.fame} fame{rec.state.phase === 'ended' ? ' · retired' : ''}
               </div>
               <div className="slot-actions">
                 <button onClick={() => onLoad(i)}>Continue</button>
@@ -122,6 +125,7 @@ function Home({
           )}
         </div>
       ))}
+      <HallOfFame />
     </div>
   );
 }
@@ -160,6 +164,8 @@ function Game({
   const setState = useCallback((s: GameState) => {
     setRawState(s);
     Saves.saveSlot(slot, s);
+    // a finished career goes into the Hall of Fame (idempotent)
+    if (s.careerRecord) Legacy.saveToHallOfFame(s.careerRecord);
   }, [slot]);
 
   /* --- auction clock ---------------------------------------
@@ -199,6 +205,18 @@ function Game({
     return <NameGallery state={state}
       onConfirm={(pn, gn, ticket) =>
         setState(Season.ensureSeason(E.nameGallery(state, pn, gn, ticket)))} />;
+  }
+
+  /* --- the end of a career --------------------------------- */
+  if (state.phase === 'ended' && state.careerRecord) {
+    return (
+      <div className="home-wrap">
+        <div className="home-title">A career in the Hall of Fame</div>
+        <CareerCard r={state.careerRecord} />
+        <p className="empty-note">{state.galleryName} will appear as a rival institution in your future careers.</p>
+        <button onClick={onExit}>Back to the home screen</button>
+      </div>
+    );
   }
 
   /* --- next week, with skip-events confirm ----------------- */

@@ -10,10 +10,14 @@ import { rarityForScore } from '../data/constants';
 import { advanceWeek, expeditionsReady, unlockedHouses } from './game';
 import { progressDirectorSystems } from './director';
 import { seasonStep, seasonIndexOfWeek, seasonLabel } from './season';
+import { retire, CAREER_YEARS } from './legacy';
 
 /** one full week: the core sim, then the director systems */
 export function stepWeek(s: GameState): GameState {
-  return seasonStep(s, progressDirectorSystems(advanceWeek(s)));
+  if (s.phase !== 'playing') return s;
+  const next = seasonStep(s, progressDirectorSystems(advanceWeek(s)));
+  // a career lasts at most 35 years
+  return next.week > CAREER_YEARS * 52 ? retire(next, 'limit') : next;
 }
 
 /** Run to the first week of the next season (the review is waiting). */
@@ -71,6 +75,7 @@ export function simToNextOpportunity(
   let cur = s;
   for (let w = 1; w <= maxWeeks; w++) {
     const next = stepWeek(cur);
+    if (next.phase === 'ended') return { state: next, weeks: w, reason: 'Your career is over — welcome to the Hall of Fame.' };
     const reason = notableReason(cur, next);
     cur = next;
     if (reason) return { state: cur, weeks: w, reason };
