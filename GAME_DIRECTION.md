@@ -517,6 +517,27 @@ UI addition for this pillar.
 - **R32** A generated city and rival set per career, and legacy museums
   that appear in later careers.
 
+### Visual identity
+- **R39** One game name, with a logo and title screen.
+- **R40** Images for public-domain works, and stylised cards for works
+  under copyright and for procedural ones.
+- **R41** One card language across crates, vault and catalogue: rarity
+  frames, card backs and reveal effects.
+- **R42** Building exteriors per tier, and floor styles per district and
+  focus.
+- **R43** A visual Annual Report and Hall of Fame, and a phone-first
+  layout pass.
+
+### Balance
+- **R44** Sim bots per archetype, plus careless and optimal bots.
+- **R45** Target curves per milestone, checked in CI.
+- **R46** Late-game spending sinks so income never outruns what's worth
+  buying.
+- **R47** Rival tuning: about 1 in 4 contested headline lots go to
+  cousins, and they stay credible threats long term.
+- **R48** Archetype parity, and a Relaxed / Standard / Ruthless
+  difficulty setting.
+
 ---
 
 ## 9. Milestones
@@ -599,6 +620,44 @@ Year 10.
 
 **Done when:** finishing a career leads straight into a new one in a
 different city.
+
+### M7 (v1.4): Visual identity
+**Scope:** R39–R43.
+- Pick one name (*Art Director* vs *Museum Wars*), with a logo and
+  title screen to match.
+- Artwork images: public-domain images for real works, and a stylised
+  frame-and-silhouette treatment for works under copyright and for
+  procedural commons.
+- Rarity frames, card backs and reveal effects that are consistent
+  across crates, the vault and the catalogue.
+- A museum exterior per building tier, and a floor plan that looks
+  different per district and focus (marble halls, white cube,
+  warehouse brick).
+- A visual Annual Report and Hall of Fame, including the Year 1 vs now
+  floor plan.
+- A phone-first layout pass on every screen.
+
+**Done when:** a screenshot of any two careers looks clearly different,
+and every Rare+ work shows an image or a deliberate stylised card.
+
+### M8 (v1.5): Balance
+**Scope:** R44–R48.
+- Extend `npm run sim` with bot personalities, one per museum
+  archetype, plus a careless bot and an optimal bot.
+- Target curves per milestone: time to each league, first Epic, first
+  Legend, first move, and cash runway. CI fails when a run leaves its
+  band.
+- Late-game economy: spending sinks (conservation, endowment, building
+  wings) so income never outruns what's worth buying.
+- Rival tuning: cousins should win roughly 1 in 4 contested headline
+  lots, and at least one should stay a credible threat through Year 10.
+- Archetype parity: every district and focus combination can reach
+  World Top 50 within a standard career, by a different route.
+- A difficulty setting (Relaxed / Standard / Ruthless) that changes
+  rival aggression and the economy, not the rules.
+
+**Done when:** across 50 simulated careers per archetype, every
+target curve holds and no single strategy dominates.
 
 ### What to cut or fold in
 - Per-style shard balances become one dust currency (M2).
