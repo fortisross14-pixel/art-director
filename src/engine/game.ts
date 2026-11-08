@@ -31,7 +31,12 @@ import {
   CRATE_TIER_NAME, expectedCardValue, ESTATE_FAMILIES, BEQUEST_DONORS,
 } from './crates';
 import { ARTIST_SETS, displayedCompleteSets, setProgress } from './sets';
-import type { Crate, CrateSource, CrateTier } from '../data/types';
+import type { Crate, CrateSource, CrateTier, Background, MuseumType, RevenueMix } from '../data/types';
+import {
+  BACKGROUNDS, MUSEUM_TYPES, MUSEUM_TYPE_OF_STYLE, rulesFor,
+} from '../data/identity';
+import type { DistrictRules, MuseumTypeDef } from '../data/identity';
+import { starterBuilding } from '../data/constants';
 export { roomRatings } from './ratings';
 
 type Result = { state: GameState; error?: string };
@@ -122,6 +127,38 @@ export function makeMuseum(buildingId: string, name: string): Museum {
     reputation: { prestige: 0, popularity: 0, patronage: 0 },
     open: true,
   };
+}
+
+/* --- identity: district rules, museum type, founder ---------- */
+export function districtRules(m: Museum): DistrictRules {
+  return rulesFor(districtOfBuilding(m.buildingId)?.id);
+}
+export function museumTypeOf(s: GameState): MuseumType {
+  return MUSEUM_TYPE_OF_STYLE[s.specialties[0] || 'renaissance'];
+}
+export function museumTypeDef(s: GameState): MuseumTypeDef {
+  return MUSEUM_TYPES[museumTypeOf(s)];
+}
+const isBg = (s: GameState, b: Background) => s.background === b;
+/** weeks shaved off research and studies (district + academic founder) */
+export function researchWeeksSaved(s: GameState): number {
+  return districtRules(activeMuseum(s)).researchWeeksSaved + (isBg(s, 'academic') ? 1 : 0);
+}
+export const emptyMix = (): RevenueMix => ({ tickets: 0, retail: 0, sponsors: 0, grants: 0, members: 0, endowment: 0 });
+/** add income to this week's and this year's revenue mix (mutates) */
+export function addIncome(s: GameState, kind: keyof RevenueMix, amount: number): void {
+  if (!amount) return;
+  s.revenueMix = { ...(s.revenueMix || emptyMix()), [kind]: (s.revenueMix?.[kind] || 0) + amount };
+  s.yearMix = { ...(s.yearMix || emptyMix()), [kind]: (s.yearMix?.[kind] || 0) + amount };
+}
+export function fundingModel(mix: RevenueMix | undefined): string {
+  if (!mix) return 'Ticket-led';
+  const groups: [string, number][] = [
+    ['Ticket-led', mix.tickets], ['Retail & events-led', mix.retail],
+    ['Sponsor-led', mix.sponsors], ['Grants & endowment-led', mix.grants + mix.endowment],
+    ['Membership-led', mix.members],
+  ];
+  return groups.sort((a, b) => b[1] - a[1])[0][0];
 }
 
 /* --- initiatives & the season chronicle ---------------------
@@ -389,6 +426,112 @@ export function chooseFoundingArtwork(
   return next;
 }
 
+/** Found the museum: who you are, where you start, what you collect.
+ *  Heirs go on to choose an inherited work (chooseFoundingArtwork);
+ *  everyone else gets their background's starting package here. */
+export function foundMuseum(
+  s: GameState, background: Background, district: string, style: StyleId | null,
+  heirloomId?: string, choices?: string[],
+): GameState {
+  const bg = BACKGROUNDS[background];
+  const next = fork(s);
+  next.background = background;
+  next.funds = bg.funds;
+  const mus = activeMuseum(next);
+  mus.buildingId = starterBuilding(district);
+  mus.rooms = makeRooms(mus.buildingId);
+  if (background === 'heir' && heirloomId) return chooseFoundingArtwork(next, heirloomId, choices);
+  const st: StyleId = style || 'renaissance';
+  next.specialties = [st];
+  next.expertise[st] = background === 'academic' ? 1 : 0.5;
+  const first = mus.rooms.find(r => r.unlocked);
+  if (first) first.theme = st;
+  if (bg.startWorks) {
+    const { count, band } = bg.startWorks;
+    const pool = ARTIFACTS.filter(a => bandIndexForScore(a.score) === band);
+    const mine = pool.filter(a => a.style === st);
+    for (let i = 0; i < count; i++) {
+      const from = (mine.length ? mine : pool).filter(a => !next.owned.includes(a.id));
+      if (from.length) next.owned.push(from[randInt(0, from.length - 1)].id);
+    }
+  }
+  if (background === 'academic') {
+    next.staff = [...next.staff, {
+      id: uid('staff'), name: staffName(), role: 'researcher', specialty: 'swift',
+      skill: 1, wage: wageFor('researcher', 'swift', 1), hired: true,
+    }];
+  }
+  // without the will there are no cousins: rival foundations instead
+  next.rivals = next.rivals.map(r => ({ ...r, name: r.name.replace('Cousin ', 'The ') + ' Foundation' }));
+  next.phase = 'name-gallery';
+  return next;
+}
+
+/* --- studio visits (modern museums and artist founders) ------- */
+export function canStudioVisit(s: GameState): boolean {
+  return (museumTypeOf(s) === 'modern' || s.background === 'artist') && !s.season?.studioVisited;
+}
+/** visit the studios: a crate of new work, leaning modern and contemporary */
+export function studioVisit(s: GameState): Result {
+  if (!canStudioVisit(s)) return { state: s, error: 'No studio visit available this season.' };
+  const noInit = initiativeError(s);
+  if (noInit) return { state: s, error: noInit };
+  const cost = 2500;
+  if (s.funds < cost) return { state: s, error: `A studio visit costs ${money(cost)}.` };
+  let next = fork(s);
+  spendInitiative(next);
+  next.funds -= cost;
+  if (next.season) next.season = { ...next.season, studioVisited: true };
+  const style: StyleId = s.specialties.find(x => x === 'contemporary' || x === 'modernism') || 'contemporary';
+  createCrate(next, 'studio', Math.random() < 0.25 ? 'major' : 'field', 3, style, 'Studio visit crate');
+  next = logged(next, { kind: 'good', text: 'You toured the studios and came back with a crate of new work.' });
+  return { state: next };
+}
+
+/* --- repatriation claims (archaeological museums) ------------- */
+const CLAIMANTS: Partial<Record<StyleId, string[]>> = {
+  egyptian: ['the Egyptian Ministry of Antiquities'],
+  classical: ['the Hellenic Ministry of Culture', 'the Italian Cultural Heritage Office'],
+  precolumbian: ['the Mexican Institute of Anthropology', 'the Peruvian Ministry of Culture'],
+};
+/** maybe raise a claim on an owned antiquity (mutates; called at season start) */
+export function maybeRaiseClaim(s: GameState): void {
+  if (!museumTypeDef(s).repatriation || s.claim || Math.random() > 0.2) return;
+  const candidates = s.owned.map(id => workOf(s, id))
+    .filter(a => CLAIMANTS[a.style] && a.score >= 50);
+  if (!candidates.length) return;
+  const art = candidates[randInt(0, candidates.length - 1)];
+  const names = CLAIMANTS[art.style]!;
+  s.claim = { artifactId: art.id, claimant: names[randInt(0, names.length - 1)], week: s.week };
+  pushLog(s, 'note', `${s.claim.claimant} asks for ${art.name} to be returned home.`);
+}
+/** return the work (prestige, goodwill) or refuse (risk of scandal) */
+export function answerClaim(s: GameState, giveBack: boolean): Result {
+  const c = s.claim;
+  if (!c) return { state: s, error: 'No claim to answer.' };
+  const art = workOf(s, c.artifactId);
+  let next = fork(s);
+  next.claim = null;
+  const m = activeMuseum(next);
+  if (giveBack) {
+    next.owned = next.owned.filter(id => id !== art.id);
+    for (const mu of next.museums) mu.rooms = mu.rooms.map(r => ({ ...r, items: r.items.filter(id => id !== art.id) }));
+    if (next.signatureId === art.id) next.signatureId = null;
+    addReputation(m, 'prestige', Math.round(art.score * 0.5));
+    addReputation(m, 'popularity', 10);
+    chronicle(next, `Returned ${art.name} to ${c.claimant}.`);
+    next = logged(next, { kind: 'good', text: `${art.name} goes home. Critics praise the museum's integrity.` });
+  } else if (Math.random() < 0.5) {
+    addReputation(m, 'prestige', -Math.round(art.score * 0.4));
+    addReputation(m, 'popularity', -10);
+    chronicle(next, `Refused to return ${art.name}: a scandal.`);
+    next = logged(next, { kind: 'bad', text: `Scandal: the press turns on the museum for keeping ${art.name}.` });
+  } else {
+    next = logged(next, { kind: 'note', text: `You kept ${art.name}. The story fades — for now.` });
+  }
+  return { state: next };
+}
+
 /** Name the gallery and set the opening ticket price; begin play.
  *  The gallery name is permanent; the ticket changes later in Manage. */
 export function nameGallery(
@@ -403,6 +546,12 @@ export function nameGallery(
   mus.ticket = Math.max(0, Math.round(ticket));
   next.log = [{ kind: 'good',
     text: `${next.galleryName} opens its doors — a ${STYLES[next.specialties[0]].name} gallery.` }];
+  // starting packages: hang what fits
+  for (const id of next.owned) {
+    if (id === next.pendingItemId) continue;
+    const room = mus.rooms.find(r => canPlace(r, ARTIFACT_BY_ID[id].style));
+    if (room && !mus.rooms.some(r => r.items.includes(id))) room.items = [...room.items, id];
+  }
   // hang the founding artwork on the wall of the starter room
   if (next.pendingItemId) {
     const art = ARTIFACT_BY_ID[next.pendingItemId];
@@ -449,7 +598,7 @@ export function startResearch(s: GameState, style: StyleId): Result {
     return { state: s, error: 'Already a specialty.' };
   // a "swift" researcher shortens the work by up to a week
   const swift = specialtySkill(s, 'swift');
-  const weeks = Math.max(2, randInt(3, 4) - (swift >= 2 ? 1 : 0));
+  const weeks = Math.max(1, randInt(3, 4) - (swift >= 2 ? 1 : 0) - researchWeeksSaved(s));
   let next = fork(s);
   spendInitiative(next);
   next.funds -= researchFee(s);
@@ -461,13 +610,18 @@ export function startResearch(s: GameState, style: StyleId): Result {
 }
 
 /* --- rooms ------------------------------------------------- */
+/** what the next room costs here (cheap in artist quarters, dear in heritage streets) */
+export function roomCost(s: GameState): number {
+  return Math.round(START.roomCost * districtRules(activeMuseum(s)).roomCostMult);
+}
 export function openRoom(s: GameState): Result {
   const locked = activeMuseum(s).rooms.find(r => !r.unlocked);
   if (!locked) return { state: s, error: 'This building has no further rooms.' };
-  if (s.funds < START.roomCost)
+  const cost = roomCost(s);
+  if (s.funds < cost)
     return { state: s, error: 'Not enough funds to open a room.' };
   let next = fork(s);
-  next.funds -= START.roomCost;
+  next.funds -= cost;
   const oMus = activeMuseum(next);
   oMus.rooms = oMus.rooms.map(r =>
     r.id === locked.id ? { ...r, unlocked: true } : r);
@@ -493,9 +647,16 @@ export function assignRoom(
 }
 
 /* --- buildings --------------------------------------------- */
+/** the next step up within the museum's own district: starter ->
+ *  mid-size -> flagship. Moving districts is a deliberate choice on
+ *  the city map, not the default growth path. */
 export function nextBuilding(s: GameState): string | null {
-  const i = BUILDING_ORDER.indexOf(activeMuseum(s).buildingId);
-  return BUILDING_ORDER[i + 1] || null;
+  const cur = activeMuseum(s).buildingId;
+  const district = districtOfBuilding(cur);
+  const ladder = (district?.buildingIds || BUILDING_ORDER)
+    .slice().sort((x, y) => BUILDINGS[x].capacity - BUILDINGS[y].capacity);
+  const i = ladder.indexOf(cur);
+  return i >= 0 ? ladder[i + 1] || null : null;
 }
 export function moveToBuilding(s: GameState, buildingId: string): Result {
   const b = BUILDINGS[buildingId];
@@ -709,7 +870,7 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
   });
   if (pool.length === 0) return null;
 
-  const count = randInt(3, 5);
+  const count = randInt(3, 5) + museumTypeDef(s).extraLots;
   const avail = [...pool];
   const lots: string[] = [];
   for (let i = 0; i < count && avail.length; i++) {
@@ -730,7 +891,7 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
   if (lots.length === 0) return null;
   // some lots surface as "Circle of" or "Workshop of" — cheaper, and
   // occasionally the real thing
-  for (const id of lots) maybeDoubt(s, id, 0.15);
+  for (const id of lots) maybeDoubt(s, id, museumTypeDef(s).doubtRate);
 
   return {
     id: uid('ev'),
@@ -1080,7 +1241,8 @@ export function sponsorWeeklyPay(
   const scopeMult = scope === 'building' ? 1.0 : 0.55;
   // a 52-week term pays a little more per week than a 26 — loyalty
   const termMult = termWeeks >= 52 ? 1.15 : 1.0;
-  return Math.round(base * scopeMult * termMult);
+  const founder = s.background === 'entrepreneur' ? 1.4 : 1;
+  return Math.round(base * scopeMult * termMult * districtRules(mus).sponsorMult * founder);
 }
 
 /** Is a scope available to sponsor on a museum? A building can
@@ -1321,7 +1483,7 @@ export function expeditionCost(s: GameState, tier: ExpeditionTier): number {
   const def = EXPEDITION_TIERS.find(t => t.id === tier);
   if (!def) return 0;
   const quarter = specialtySkill(s, 'quartermaster');
-  return Math.round(def.cost * (1 - Math.min(0.3, quarter * 0.1)));
+  return Math.round(def.cost * (1 - Math.min(0.3, quarter * 0.1)) * museumTypeDef(s).expeditionCostMult);
 }
 
 export function commissionExpedition(
@@ -1402,8 +1564,12 @@ export function resolveExpedition(
   if (exp.resolved) return { state: s, error: 'Already resolved.' };
   const def = EXPEDITION_TIERS.find(t => t.id === exp.tier)!;
   let next = fork(s);
-  const count = expeditionCardCount(result);
-  const tier = EXPEDITION_CRATE[exp.tier];
+  // archaeological museums bring home more, and sometimes better
+  const type = museumTypeDef(s);
+  const base = expeditionCardCount(result);
+  const count = base > 0 ? Math.min(6, base + type.digExtraCards) : 0;
+  let tier = EXPEDITION_CRATE[exp.tier];
+  if (count && tier !== 'legendary' && Math.random() < type.digUpgrade) tier = tier === 'field' ? 'major' : 'legendary';
   next.expeditions = next.expeditions.map(e =>
     e.id === expeditionId ? { ...e, resolved: true } : e);
   if (count === 0) {
@@ -1567,9 +1733,11 @@ function rollEstateOffer(s: GameState): void {
   const houses = [...joinedHouses(s)].sort((a, b) => b.fameToUnlock - a.fameToUnlock);
   const h = houses[0];
   if (!h) return;
-  const tier: CrateTier = h.id === 'house1' ? 'field'
+  let tier: CrateTier = h.id === 'house1' ? 'field'
     : h.id === 'house2' ? (Math.random() < 0.4 ? 'major' : 'field')
     : (Math.random() < 0.3 ? 'legendary' : 'major');
+  const up = districtRules(activeMuseum(s)).estateUpgrade + museumTypeDef(s).estateUpgrade;
+  if (tier !== 'legendary' && Math.random() < up) tier = tier === 'field' ? 'major' : 'legendary';
   const cardCount = randInt(3, 5);
   const price = Math.round(expectedCardValue(tier) * cardCount * rand(0.6, 0.8) / 100) * 100;
   s.estateOffer = {
@@ -1600,7 +1768,7 @@ export function buyEstate(s: GameState): Result {
 /** donors who love the museum sometimes leave it something */
 function rollBequest(s: GameState): void {
   const patronage = totalReputation(s).patronage;
-  if (Math.random() > Math.min(0.05, patronage / 1500)) return;
+  if (Math.random() > Math.min(0.05, patronage / 1500) * museumTypeDef(s).bequestMult) return;
   const donor = BEQUEST_DONORS[randInt(0, BEQUEST_DONORS.length - 1)];
   createCrate(s, 'bequest', 'major', randInt(1, 3), null, `The bequest of ${donor}`, 2);
   pushLog(s, 'good', `${donor} has left the museum a bequest. Open it from the Calendar.`);
@@ -1624,7 +1792,7 @@ export function startStudy(s: GameState, artId: string): Result {
   let next = fork(s);
   spendInitiative(next);
   next.funds -= cost;
-  const weeks = Math.max(2, STUDY_WEEKS - (specialtySkill(s, 'swift') >= 2 ? 1 : 0));
+  const weeks = Math.max(1, STUDY_WEEKS - (specialtySkill(s, 'swift') >= 2 ? 1 : 0) - researchWeeksSaved(s));
   next.studies = [...running, { artifactId: artId, weeksLeft: weeks }];
   next = logged(next, { kind: 'note',
     text: `Began an attribution study of ${ARTIFACT_BY_ID[artId].name} (${weeks} weeks).` });
@@ -1753,7 +1921,8 @@ export function acceptLoan(
   lMus.loans = [...lMus.loans, {
     id: uid('loan'),
     artifactId, roomId: null,
-    weeksLeft: weeks, weeklyFee, lenderName,
+    weeksLeft: weeks, lenderName,
+    weeklyFee: Math.round(weeklyFee * museumTypeDef(s).loanFeeMult * (s.background === 'collector' ? 0.7 : 1)),
   }];
   next = logged(next, { kind: 'good',
     text: `${lenderName} loans ${art.name} for ${weeks} weeks `
@@ -1987,9 +2156,14 @@ const TYPE_DRAW: Record<string, number> = {
 /** per-artwork DAILY visitor pull, before diminishing returns.
  *  A score-0 Common pulls a handful a day; an Uncommon noticeably
  *  more; a Legend draws a real crowd. Type nudges it a little. */
-function artifactDailyDraw(s: GameState, id: string): number {
+function artifactDailyDraw(s: GameState, id: string, rules?: DistrictRules): number {
   const a = workOf(s, id);
-  const typeMult = TYPE_DRAW[a.type] ?? 1;
+  let typeMult = TYPE_DRAW[a.type] ?? 1;
+  if (rules) {
+    typeMult *= rules.artDrawMult;
+    if (rules.styleBoost.includes(a.style)) typeMult *= 1.15;
+    if (rules.typeBoost === a.type) typeMult *= 1.15;
+  }
   // base 4/day + score scaling; Common ~4-7, Uncommon ~9-13,
   // Rare ~15-28, Epic/Legend climbing well past that.
   return (4 + a.score * 0.85) * typeMult;
@@ -1999,12 +2173,13 @@ function artifactDailyDraw(s: GameState, id: string): number {
  *  diminishing returns on each successive (lower-ranked) work. */
 export function dailyVisitors(s: GameState, museum?: Museum): number {
   const mus = museum || activeMuseum(s);
+  const rules = districtRules(mus);
   const draws: number[] = [];
   for (const r of mus.rooms)
-    for (const id of r.items) draws.push(artifactDailyDraw(s, id));
+    for (const id of r.items) draws.push(artifactDailyDraw(s, id, rules));
   // works on loan that are ON DISPLAY draw visitors too
   for (const l of mus.loans)
-    if (l.roomId !== null) draws.push(artifactDailyDraw(s, l.artifactId));
+    if (l.roomId !== null) draws.push(artifactDailyDraw(s, l.artifactId, rules));
   if (draws.length === 0) return 0;
 
   // best pieces count fullest; each next piece is worth a little
@@ -2029,13 +2204,12 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
   // interpretation turn quality into attendance.
   const ratings = museumExhibitionRatings(s, mus.id);
   const budget = budgetEffects(s, mus);
-  const presentationMult = 0.6 + ratings.attractiveness / 180 + ratings.artQuality / 350
-    + budget.presentationBonus;
-  const district = districtOfBuilding(mus.buildingId);
-  const districtMult = district?.id.includes('downtown') ? 1.12
-    : district?.id.includes('historic') ? 1.08
-    : district?.id.includes('college') ? 1.04
-    : district?.id.includes('water') ? 0.94 : 1;
+  const presentationMult = 0.6 + ratings.attractiveness / 180 * rules.presentationMult
+    + ratings.artQuality / 350 + budget.presentationBonus;
+  // tourist districts swing with the seasons
+  const q = s.season ? s.season.index % 4 : 0;
+  const seasonal = rules.seasonalTourism ? [1, 1.2, 1, 0.85][q] : 1;
+  const districtMult = rules.visitorMult * seasonal;
   const temporary = (s.temporaryExhibitions || []).filter(x =>
     mus.rooms.some(r => r.id === x.roomId)).reduce((n, x) =>
       n + 0.08 + x.marketing / 50000 + (x.quality + x.attractiveness) / 1600, 0);
@@ -2048,7 +2222,7 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
 export function buildingCapacity(mus: Museum): number {
   const b = BUILDINGS[mus.buildingId];
   // each open room adds a little circulation space
-  return Math.round(b.capacity * (0.8 + 0.2 * mus.rooms.filter(r => r.unlocked).length
+  return Math.round(b.capacity * districtRules(mus).capacityMult * (0.8 + 0.2 * mus.rooms.filter(r => r.unlocked).length
     / Math.max(1, mus.rooms.length)));
 }
 
@@ -2072,7 +2246,7 @@ export function atCapacity(s: GameState, mus?: Museum): boolean {
  *  with crowd size, from about §6 for an unknown gallery to about
  *  §25 for a world-famous one. */
 export function fairTicket(mus: Museum): number {
-  return 6 + Math.min(19, Math.sqrt(Math.max(0, mus.fame)) * 0.42);
+  return (6 + Math.min(19, Math.sqrt(Math.max(0, mus.fame)) * 0.42)) * districtRules(mus).ticketTolerance;
 }
 
 /** per-visitor running cost: front of house, security, cleaning */
@@ -2098,7 +2272,9 @@ export function computeVisitors(s: GameState, museum?: Museum): number {
 }
 
 /* weekly revenue for a museum. */
-export function computeRevenue(s: GameState, museum?: Museum): number {
+/** weekly income from visitors, split into tickets and retail
+ *  (shop, café, events — far bigger in some districts) */
+export function computeRevenueParts(s: GameState, museum?: Museum): { tickets: number; retail: number } {
   const mus = museum || activeMuseum(s);
   const visitors = computeVisitors(s, mus);
   const temporary = (s.temporaryExhibitions || []).filter(x =>
@@ -2106,8 +2282,18 @@ export function computeRevenue(s: GameState, museum?: Museum): number {
   const avgSurcharge = temporary.length
     ? temporary.reduce((n, x) => n + x.surcharge, 0) / temporary.length : 0;
   const memberShare = Math.min(0.18, (s.memberships || 0) / Math.max(500, visitors * 8));
-  return Math.round(visitors * (mus.ticket + 3 + avgSurcharge * 0.28)
-    * (1 - memberShare * 0.35));
+  const paying = visitors * (1 - memberShare * 0.35);
+  // better-known museums sell more in the shop, too
+  const retailPer = (districtRules(mus).retailPerVisitor + museumTypeDef(s).retailBonus)
+    * Math.sqrt(fairTicket(mus) / 8);
+  return {
+    tickets: Math.round(paying * (mus.ticket + avgSurcharge * 0.28)),
+    retail: Math.round(visitors * retailPer),
+  };
+}
+export function computeRevenue(s: GameState, museum?: Museum): number {
+  const p = computeRevenueParts(s, museum);
+  return p.tickets + p.retail;
 }
 /** total weekly revenue across every open museum */
 export function totalRevenue(s: GameState): number {
@@ -2131,7 +2317,7 @@ export function computeExpenses(s: GameState): number {
   for (const m of openMuseums(s)) {
     const roomsOpen = m.rooms.filter(r => r.unlocked).length;
     const roomSurcharge = Math.max(0, roomsOpen - 1) * 120;
-    buildings += BUILDINGS[m.buildingId].maintenance + roomSurcharge;
+    buildings += BUILDINGS[m.buildingId].maintenance * districtRules(m).maintenanceMult + roomSurcharge;
   }
   // busier museums cost more to run
   const footfall = openMuseums(s).reduce((n, m) => n + dailyVisitors(s, m) * 6, 0);
@@ -2186,6 +2372,9 @@ function accrueReputation(s: GameState): void {
   for (const m of s.museums) {
     if (!m.open) continue;
     const target = reputationTargets(s, m);
+    const rules = districtRules(m);
+    target.prestige *= rules.prestigeMult * (s.background === 'entrepreneur' ? 0.85 : 1);
+    target.popularity *= rules.popularityMult;
     const cur = reputationOf(m);
     for (const k of ['prestige', 'popularity', 'patronage'] as ReputationKind[]) {
       const gap = target[k] - cur[k];
@@ -2251,10 +2440,12 @@ export function advanceWeek(s: GameState): GameState {
   }
 
   // sponsors pay weekly, count down, and depart when the term ends
+  let sponsorIncome = 0;
   for (const m of next.museums) {
     let payTotal = 0;
     for (const sp of m.sponsors) payTotal += sp.weeklyPay;
     next.funds += payTotal;
+    sponsorIncome += payTotal;
     const ending = m.sponsors.filter(sp => sp.weeksLeft <= 1);
     for (const sp of ending) {
       // the named space reverts when the sponsor departs
@@ -2301,7 +2492,30 @@ export function advanceWeek(s: GameState): GameState {
   }
 
   // economy: revenue in, expenses out — both recorded for display
-  const revenue = totalRevenue(next);
+  // income by source, for the funding model
+  next.revenueMix = { ...emptyMix(), sponsors: sponsorIncome };
+  next.yearMix = { ...(next.yearMix || emptyMix()) };
+  next.yearMix.sponsors += sponsorIncome;
+  let revenue = 0;
+  for (const m of openMuseums(next)) {
+    const parts = computeRevenueParts(next, m);
+    addIncome(next, 'tickets', parts.tickets);
+    addIncome(next, 'retail', parts.retail);
+    revenue += parts.tickets + parts.retail;
+  }
+  const memberFees = Math.round((next.memberships || 0) * 1.5);
+  addIncome(next, 'members', memberFees);
+  revenue += memberFees;
+  // the odd flood on the waterfront
+  for (const m of openMuseums(next)) {
+    const r = districtRules(m);
+    const ops = next.season ? next.season.plan.operations : 15;
+    if (r.floodRisk && Math.random() < r.floodRisk * (ops >= 20 ? 0.5 : 1)) {
+      const cost = BUILDINGS[m.buildingId].maintenance * 3;
+      next.funds -= cost;
+      next = logged(next, { kind: 'bad', text: `Flood! The river came into ${m.name}: ${money(cost)} of repairs.` });
+    }
+  }
   const expenses = computeExpenses(next);
   next.funds += revenue - expenses;
   next.lastRevenue = revenue;
@@ -2379,7 +2593,8 @@ export function advanceWeek(s: GameState): GameState {
   next.events = rollEvents(next);
   rollEstateOffer(next);
   // a gala appears some weeks — a chance to court collectors for loans
-  next.galaPending = Math.random() < 0.4;
+  next.galaPending = Math.random() < districtRules(activeMuseum(next)).galaChance
+    + museumTypeDef(next).galaBonus + (next.background === 'collector' ? 0.15 : 0);
   if (next.galaPending)
     next = logged(next, { kind: 'note',
       text: 'A society gala is being held this week — a chance to court '

@@ -19,6 +19,8 @@ import type { AuctionState, GameState } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { rand, money, pick } from './util';
 import { workOf } from './attribution';
+import { rulesFor } from '../data/identity';
+import { districtOfBuilding } from '../data/constants';
 
 const COLLECTORS = [
   'The Thorncrest Collection', 'A private collector', 'A telephone bidder',
@@ -54,7 +56,9 @@ export function startLot(state: GameState, artifactId: string): AuctionState {
   // can afford; otherwise the room is an anonymous collector
   const cousins = state.rivals.filter(r => r.style === art.style && (r.budget || 0) > estimate * 0.5);
   const cousin = cousins.length ? pick(cousins) : null;
-  let rivalCeiling = Math.round(estimate * rand(0.65, 1.35) * expertiseCut);
+  const here = state.museums.find(m => m.id === state.activeMuseumId) || state.museums[0];
+  const aggression = rulesFor(districtOfBuilding(here?.buildingId || 'local')?.id).rivalAggression;
+  let rivalCeiling = Math.round(estimate * rand(0.65, 1.35) * expertiseCut * aggression);
   if (cousin) rivalCeiling = Math.round(Math.min(
     (cousin.budget || 0) * 0.9, estimate * rand(0.85, 1.45) * expertiseCut));
   return {

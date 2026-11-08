@@ -54,9 +54,119 @@ export const typeIcon = (t: ArtType) => TYPE_ICON[t] || '◆';
 /* --- buildings --------------------------------------------- */
 export const ROOM_CAPACITY = 5;
 export const BUILDINGS: Record<string, BuildingDef> = {
+  /* --- starter homes: one small first building per district -- */
+  seminar: {
+    id: 'seminar', name: 'The Seminar Rooms', starter: true,
+    blurb: 'Borrowed teaching rooms on campus. Students wander in between lectures.',
+    prestige: 1.0, moveCost: 0, maintenance: 1500, capacity: 170,
+    halls: [{ id: 'ground', name: 'Seminar Wing', roomCap: 3, startRooms: 1 }],
+  },
+  garage: {
+    id: 'garage', name: 'The Garage Gallery', starter: true,
+    blurb: 'A converted garage between studios. Raw, cheap, full of character.',
+    prestige: 1.0, moveCost: 0, maintenance: 1200, capacity: 160,
+    halls: [{ id: 'ground', name: 'Garage Floor', roomCap: 3, startRooms: 1 }],
+  },
+  lobby: {
+    id: 'lobby', name: 'The Lobby Gallery', starter: true,
+    blurb: 'A glass lobby in an office tower. Bankers on their lunch break.',
+    prestige: 1.0, moveCost: 0, maintenance: 2400, capacity: 200,
+    halls: [{ id: 'ground', name: 'Lobby Level', roomCap: 3, startRooms: 1 }],
+  },
+  gatehouse: {
+    id: 'gatehouse', name: 'The Gatehouse', starter: true,
+    blurb: 'An old lodge at the park gates. Families on their Sunday walk.',
+    prestige: 1.0, moveCost: 0, maintenance: 1600, capacity: 170,
+    halls: [{ id: 'ground', name: 'Lodge Rooms', roomCap: 3, startRooms: 1 }],
+  },
+  boathouse: {
+    id: 'boathouse', name: 'The Boathouse', starter: true,
+    blurb: 'A long boathouse on the quay. Damp, roomy and cheap.',
+    prestige: 1.0, moveCost: 0, maintenance: 1300, capacity: 200,
+    halls: [{ id: 'ground', name: 'Boat Shed', roomCap: 4, startRooms: 1 }],
+  },
+  cabinet: {
+    id: 'cabinet', name: "The Collector's Cabinet", starter: true,
+    blurb: 'Two panelled rooms above a dealer on the smartest street in town.',
+    prestige: 1.05, moveCost: 0, maintenance: 2600, capacity: 150,
+    halls: [{ id: 'ground', name: 'Cabinet Rooms', roomCap: 2, startRooms: 1 }],
+  },
+  /* --- district flagships: the top address in each district -- */
+  cathedral: {
+    id: 'cathedral', name: "The Cathedral Museum",
+    blurb: "A deconsecrated cathedral in the old town — the city's most famous address.",
+    prestige: 1.5, moveCost: 200000, maintenance: 40000, capacity: 2600,
+    halls: [
+      { id: 'ca0', name: 'North Hall', roomCap: 5, startRooms: 1 },
+      { id: 'ca1', name: 'South Hall', roomCap: 5, startRooms: 0 },
+      { id: 'ca2', name: 'East Hall', roomCap: 5, startRooms: 0 },
+      { id: 'ca3', name: 'West Hall', roomCap: 5, startRooms: 0 },
+      { id: 'ca4', name: 'Grand Hall', roomCap: 5, startRooms: 0 },
+    ],
+  },
+  library: {
+    id: 'library', name: "The Great Library",
+    blurb: "The university's neo-classical library, given over to the museum.",
+    prestige: 1.5, moveCost: 180000, maintenance: 36000, capacity: 2400,
+    halls: [
+      { id: 'li0', name: 'North Hall', roomCap: 5, startRooms: 1 },
+      { id: 'li1', name: 'South Hall', roomCap: 5, startRooms: 0 },
+      { id: 'li2', name: 'East Hall', roomCap: 5, startRooms: 0 },
+      { id: 'li3', name: 'West Hall', roomCap: 5, startRooms: 0 },
+      { id: 'li4', name: 'Grand Hall', roomCap: 5, startRooms: 0 },
+    ],
+  },
+  foundry: {
+    id: 'foundry', name: "The Old Foundry",
+    blurb: "A vast ironworks turned into the city's beating cultural heart.",
+    prestige: 1.35, moveCost: 140000, maintenance: 26000, capacity: 2200,
+    halls: [
+      { id: 'fo0', name: 'North Hall', roomCap: 5, startRooms: 1 },
+      { id: 'fo1', name: 'South Hall', roomCap: 5, startRooms: 0 },
+      { id: 'fo2', name: 'East Hall', roomCap: 5, startRooms: 0 },
+      { id: 'fo3', name: 'West Hall', roomCap: 5, startRooms: 0 },
+      { id: 'fo4', name: 'Grand Hall', roomCap: 5, startRooms: 0 },
+    ],
+  },
+  exchange: {
+    id: 'exchange', name: "The Exchange",
+    blurb: "The old stock exchange: marble trading floors, glass roofs, money everywhere.",
+    prestige: 1.45, moveCost: 260000, maintenance: 55000, capacity: 3200,
+    halls: [
+      { id: 'ex0', name: 'North Hall', roomCap: 5, startRooms: 1 },
+      { id: 'ex1', name: 'South Hall', roomCap: 5, startRooms: 0 },
+      { id: 'ex2', name: 'East Hall', roomCap: 5, startRooms: 0 },
+      { id: 'ex3', name: 'West Hall', roomCap: 5, startRooms: 0 },
+      { id: 'ex4', name: 'Grand Hall', roomCap: 5, startRooms: 0 },
+    ],
+  },
+  conservatory: {
+    id: 'conservatory', name: "The Grand Conservatory",
+    blurb: "A glasshouse palace among the gardens, sculptures under palms.",
+    prestige: 1.45, moveCost: 170000, maintenance: 34000, capacity: 2400,
+    halls: [
+      { id: 'co0', name: 'North Hall', roomCap: 5, startRooms: 1 },
+      { id: 'co1', name: 'South Hall', roomCap: 5, startRooms: 0 },
+      { id: 'co2', name: 'East Hall', roomCap: 5, startRooms: 0 },
+      { id: 'co3', name: 'West Hall', roomCap: 5, startRooms: 0 },
+      { id: 'co4', name: 'Grand Hall', roomCap: 5, startRooms: 0 },
+    ],
+  },
+  terminal: {
+    id: 'terminal', name: "The Grand Terminal",
+    blurb: "A disused ocean terminal — enormous halls over the water.",
+    prestige: 1.35, moveCost: 160000, maintenance: 30000, capacity: 3000,
+    halls: [
+      { id: 'te0', name: 'North Hall', roomCap: 5, startRooms: 1 },
+      { id: 'te1', name: 'South Hall', roomCap: 5, startRooms: 0 },
+      { id: 'te2', name: 'East Hall', roomCap: 5, startRooms: 0 },
+      { id: 'te3', name: 'West Hall', roomCap: 5, startRooms: 0 },
+      { id: 'te4', name: 'Grand Hall', roomCap: 5, startRooms: 0 },
+    ],
+  },
   /* --- Historic District: where a museum begins ----------- */
   local: {
-    id: 'local', name: 'Local Gallery',
+    id: 'local', name: 'Local Gallery', starter: true,
     blurb: 'A rented room in a small city. A beginning.',
     prestige: 1.0, moveCost: 0, maintenance: 1750, capacity: 180,
     halls: [{ id: 'ground', name: 'Ground Floor', roomCap: 3, startRooms: 1 }],
@@ -147,33 +257,33 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   },
 };
 export const BUILDING_ORDER = [
-  'local', 'loft', 'town', 'college', 'pavilion', 'warehouse',
-  'salon', 'tower', 'palace',
+  'local', 'seminar', 'garage', 'lobby', 'gatehouse', 'boathouse', 'cabinet', 'loft', 'town', 'college', 'pavilion', 'warehouse',
+  'salon', 'tower', 'palace', 'foundry', 'terminal', 'conservatory', 'library', 'cathedral', 'exchange',
 ];
 
 /* --- districts (7) ----------------------------------------- */
 export const DISTRICTS: DistrictDef[] = [
   { id: 'historic', name: 'Historic District',
     blurb: 'Old streets and civic halls — where a small museum can begin.',
-    accent: '#b9892f', pos: { x: 82, y: 70 }, buildingIds: ['local', 'town'] },
+    accent: '#b9892f', pos: { x: 82, y: 70 }, buildingIds: ['local', 'town', 'cathedral'] },
   { id: 'art', name: 'Art District',
     blurb: 'Grand institutions and collectors. The address of a great museum.',
-    accent: '#8b3a2f', pos: { x: 83, y: 20 }, buildingIds: ['salon', 'palace'] },
+    accent: '#8b3a2f', pos: { x: 83, y: 20 }, buildingIds: ['cabinet', 'salon', 'palace'] },
   { id: 'college', name: 'College District',
     blurb: 'Universities and young crowds — busy, affordable halls.',
-    accent: '#3f6694', pos: { x: 18, y: 17 }, buildingIds: ['college'] },
+    accent: '#3f6694', pos: { x: 18, y: 17 }, buildingIds: ['seminar', 'college', 'library'] },
   { id: 'bohemian', name: 'Bohemian Neighborhood',
     blurb: 'Artists and studios — raw spaces with real character.',
-    accent: '#6b4a8a', pos: { x: 49, y: 17 }, buildingIds: ['loft'] },
-  { id: 'downtown', name: 'Downtown',
+    accent: '#6b4a8a', pos: { x: 49, y: 17 }, buildingIds: ['garage', 'loft', 'foundry'] },
+  { id: 'downtown', name: 'Financial District',
     blurb: 'The commercial heart of the city — high-rise galleries, high rent.',
-    accent: '#3a352c', pos: { x: 47, y: 55 }, buildingIds: ['tower'] },
+    accent: '#3a352c', pos: { x: 47, y: 55 }, buildingIds: ['lobby', 'tower', 'exchange'] },
   { id: 'park', name: 'Park District',
     blurb: 'Green space and quiet — a pavilion among the gardens.',
-    accent: '#4a6149', pos: { x: 13, y: 66 }, buildingIds: ['pavilion'] },
+    accent: '#4a6149', pos: { x: 13, y: 66 }, buildingIds: ['gatehouse', 'pavilion', 'conservatory'] },
   { id: 'waterfront', name: 'Waterfront',
     blurb: 'Docks and open water — vast warehouse space for little rent.',
-    accent: '#2f4a55', pos: { x: 50, y: 86 }, buildingIds: ['warehouse'] },
+    accent: '#2f4a55', pos: { x: 50, y: 86 }, buildingIds: ['boathouse', 'warehouse', 'terminal'] },
 ];
 export function districtOfBuilding(buildingId: string): DistrictDef | null {
   return DISTRICTS.find(d => d.buildingIds.includes(buildingId)) || null;
@@ -372,3 +482,9 @@ export const STATIC_MUSEUMS: StaticMuseum[] = [
   { id: 'city-reg-2', name: 'Harborview Art Museum', city: 'Your City', tier: 'regional', inYourCity: true, fame: 380, quality: 350, visitors: 8600 },
   { id: 'city-reg-3', name: 'The Sterling Collection',city:'Your City', tier: 'regional', inYourCity: true, fame: 290, quality: 330, visitors: 3000 },
 ];
+
+/** a district's starter building */
+export function starterBuilding(districtId: string): string {
+  const d = DISTRICTS.find(x => x.id === districtId);
+  return d?.buildingIds.find(id => BUILDINGS[id]?.starter) || 'local';
+}

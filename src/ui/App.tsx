@@ -15,10 +15,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import './styles.css';
 import type {
-  GameState, StyleId, Room, SaveSlot, GameEvent, Expedition,
+  GameState, StyleId, Room, SaveSlot, GameEvent, Expedition, Background,
 } from '../data/types';
 import {
-  STYLES, STYLE_IDS, BUILDINGS, AD_CAMPAIGN, START,
+  STYLES, STYLE_IDS, BUILDINGS, AD_CAMPAIGN,
   AUCTION_HOUSES, EXPEDITION_TIERS,
   DISTRICTS, districtOfBuilding, typeIcon, rarityForScore,
   RARITY_BANDS,
@@ -35,6 +35,8 @@ import * as Sim from '../engine/sim';
 import * as Att from '../engine/attribution';
 import { CrateScreen, CratesPanel, DustPanel, CatalogueTab } from './crates';
 import * as Season from '../engine/season';
+import { BACKGROUNDS, BACKGROUND_IDS, MUSEUM_TYPES, MUSEUM_TYPE_OF_STYLE, rulesFor } from '../data/identity';
+import { starterBuilding } from '../data/constants';
 import { SeasonPanel, AnnualReportPanel, HistoryPanel, TicketPresets } from './season';
 import { money } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
@@ -188,8 +190,8 @@ function Game({
   /* --- onboarding screens ---------------------------------- */
   if (state.phase === 'choose-specialty') {
     return <ChooseStyle
-      onPick={(artId, all) =>
-        setState(E.chooseFoundingArtwork(state, artId, all))}
+      onFound={(bg, district, style, artId, all) =>
+        setState(E.foundMuseum(state, bg, district, style, artId, all))}
       onExit={onExit} />;
   }
   if (state.phase === 'name-gallery') {
@@ -431,12 +433,17 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
    ONBOARDING — choose style
    ============================================================ */
 function ChooseStyle({
-  onPick, onExit,
+  onFound, onExit,
 }: {
-  onPick: (artId: string, allChoices: string[]) => void;
+  onFound: (bg: Background, district: string, style: StyleId | null, artId?: string, allChoices?: string[]) => void;
   onExit: () => void;
 }) {
   const [offered] = useState<string[]>(() => E.foundingArtworkChoices());
+  const [bg, setBg] = useState<Background>('heir');
+  const [district, setDistrict] = useState('historic');
+  const [style, setStyle] = useState<StyleId>('renaissance');
+  const onPick = (artId: string, all: string[]) => onFound('heir', district, null, artId, all);
+  const type = MUSEUM_TYPES[MUSEUM_TYPE_OF_STYLE[style]];
   return (
     <>
       <header>
@@ -447,6 +454,27 @@ function ChooseStyle({
       </header>
       <main>
         <div className="panel">
+          <h2>Found your museum<span className="sub">who you are, where you start</span></h2>
+          <div className="field"><label>Founder</label>
+            <select value={bg} onChange={e => setBg(e.target.value as Background)}>
+              {BACKGROUND_IDS.map(id => <option key={id} value={id}>{BACKGROUNDS[id].name}</option>)}
+            </select></div>
+          <p className="empty-note">{BACKGROUNDS[bg].blurb} <b>{BACKGROUNDS[bg].perk}</b> Starting cash {money(BACKGROUNDS[bg].funds)}.</p>
+          <div className="field"><label>District</label>
+            <select value={district} onChange={e => setDistrict(e.target.value)}>
+              {DISTRICTS.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select></div>
+          <p className="empty-note">{rulesFor(district).summary} You start in {BUILDINGS[starterBuilding(district)].name}.</p>
+          {bg !== 'heir' && <>
+            <div className="field"><label>Focus</label>
+              <select value={style} onChange={e => setStyle(e.target.value as StyleId)}>
+                {STYLE_IDS.map(id => <option key={id} value={id}>{STYLES[id].name}</option>)}
+              </select></div>
+            <p className="empty-note"><b>{type.name}.</b> {type.channel}</p>
+            <button onClick={() => onFound(bg, district, style)}>Found the museum →</button>
+          </>}
+        </div>
+        {bg === 'heir' && <div className="panel">
           <h2>The Inheritance
             <span className="sub">your grandparent's legacy</span></h2>
           <p className="empty-note">
@@ -483,7 +511,7 @@ function ChooseStyle({
               </div>
             );
           })}
-        </div>
+        </div>}
       </main>
     </>
   );
@@ -956,9 +984,9 @@ function GalleriesTab({
             <h3>Expand the museum</h3>
             <p className="empty-note">Open the next closed gallery when you need more exhibition space.</p>
           </div>
-          <button disabled={state.funds < START.roomCost}
+          <button disabled={state.funds < E.roomCost(state)}
             onClick={() => apply(E.openRoom(state))}>
-            Open next room · {money(START.roomCost)}
+            Open next room · {money(E.roomCost(state))}
           </button>
         </div>
       )}
@@ -1265,9 +1293,9 @@ function GalleryRoom({
       <div className="groom locked">
         <div>Unbuilt Room</div>
         <button className="ghost small"
-          disabled={state.funds < START.roomCost}
+          disabled={state.funds < E.roomCost(state)}
           onClick={onOpen}>
-          Expand · {money(START.roomCost)}
+          Expand · {money(E.roomCost(state))}
         </button>
       </div>
     );
@@ -1422,7 +1450,7 @@ function WeekTab({
   }
   return (
     <>
-    <SeasonPanel state={state} setState={setState} onSimSeason={onSimSeason} />
+    <SeasonPanel state={state} setState={setState} onSimSeason={onSimSeason} apply={apply} />
     <AnnualReportPanel state={state} />
     <CratesPanel state={state} apply={apply} onOpen={onOpenCrate} />
     <div className="panel">

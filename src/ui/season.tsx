@@ -9,9 +9,26 @@ import { ARTIFACT_BY_ID } from '../data/artifacts';
 import * as S from '../engine/season';
 import * as E from '../engine/game';
 import { money } from '../engine/util';
+import { BACKGROUNDS } from '../data/identity';
+import { districtOfBuilding } from '../data/constants';
+import type { RevenueMix } from '../data/types';
 
-export function SeasonPanel({ state, setState, onSimSeason }: {
+const MIX_NAMES: Record<keyof RevenueMix, string> = {
+  tickets: 'Tickets', retail: 'Shop, café & events', sponsors: 'Sponsors',
+  grants: 'Grants', members: 'Members', endowment: 'Endowment',
+};
+export function MixLine({ mix }: { mix?: RevenueMix }) {
+  if (!mix) return null;
+  const total = Object.values(mix).reduce((n, v) => n + v, 0) || 1;
+  const parts = (Object.keys(MIX_NAMES) as (keyof RevenueMix)[])
+    .filter(k => mix[k] > 0).sort((a, b) => mix[b] - mix[a])
+    .map(k => `${MIX_NAMES[k]} ${Math.round(mix[k] / total * 100)}%`);
+  return <p className="empty-note">Income: {parts.join(' · ') || 'none yet'} — <b>{E.fundingModel(mix)}</b></p>;
+}
+
+export function SeasonPanel({ state, setState, onSimSeason, apply }: {
   state: GameState; setState: (s: GameState) => void; onSimSeason: () => void;
+  apply: (r: { state: GameState; error?: string }) => void;
 }) {
   const season = state.season;
   const [plan, setPlan] = useState<BudgetPlan | null>(null);
@@ -24,6 +41,19 @@ export function SeasonPanel({ state, setState, onSimSeason }: {
       <h2>{S.seasonLabel(season.index)}<span className="sub">
         week {S.weekOfSeason(state)} of {S.SEASON_WEEKS} · {S.LEAGUE_NAMES[state.league || 'city']} #{S.leagueRank(state)}
         {' '}· {S.STAGE_NAMES[S.careerStage(state)]}</span></h2>
+      <p className="empty-note">{state.background ? BACKGROUNDS[state.background].name : 'Heir'} ·
+        {' '}{districtOfBuilding(E.activeMuseum(state).buildingId)?.name} · {E.museumTypeDef(state).name}.
+        {' '}{E.museumTypeDef(state).channel}</p>
+      <MixLine mix={state.yearMix} />
+      {state.claim && (() => {
+        const a = ARTIFACT_BY_ID[state.claim.artifactId];
+        return <div className="rumour-card"><b>Repatriation claim:</b> {state.claim.claimant} asks for {a.name} to be returned.
+          {' '}Returning it earns prestige; refusing risks a scandal.
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button onClick={() => apply(E.answerClaim(state, true))}>Return it</button>
+            <button className="ghost" onClick={() => apply(E.answerClaim(state, false))}>Refuse</button></div></div>;
+      })()}
+      {E.canStudioVisit(state) && <p><button onClick={() => apply(E.studioVisit(state))}>Visit the studios · §2,500 · 1 initiative</button></p>}
       <p className="empty-note">Initiatives left: <b>{season.initiativesLeft} / {season.initiativesMax}</b> (expeditions, studies,
         estate lots, research, campaigns, sponsors and temporary shows each use one; more staff, more initiatives).</p>
       <p className="empty-note">Budget plan: how each week's surplus is split. {season.planned ? '' : <b>Not yet confirmed this season.</b>}</p>
@@ -88,6 +118,7 @@ export function AnnualReportPanel({ state }: { state: GameState }) {
       <p>Acquisition of the year: <b>{name(r.acquisitionOfYear)}</b> · Discovery: <b>{name(r.discoveryOfYear)}</b>
         {' '}· Exhibition: <b>{r.exhibitionOfYear || '—'}</b></p>
       {r.awards.length > 0 && <p>Awards: {r.awards.join(' · ')}</p>}
+      <MixLine mix={r.revenueMix} />
       {r.promotedTo && <p><b>Promoted to the {S.LEAGUE_NAMES[r.promotedTo]}!</b> New stage: {S.STAGE_NAMES[r.stage]}.</p>}
     </div>
   );

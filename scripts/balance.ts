@@ -5,16 +5,21 @@
    can be checked against the milestone targets in
    GAME_DIRECTION.md without clicking through hundreds of weeks.
    ============================================================ */
-import type { GameState } from '../src/data/types';
+import type { Background, GameState, StyleId } from '../src/data/types';
 import * as E from '../src/engine/game';
 import * as Auc from '../src/engine/auction';
 import { stepWeek } from '../src/engine/sim';
 import { ensureSeason, leagueRank } from '../src/engine/season';
 import { ARTIFACT_BY_ID } from '../src/data/artifacts';
+import { randInt } from '../src/engine/util';
 import { AUCTION_HOUSES, BUILDINGS, START, rarityForScore } from '../src/data/constants';
 
 const WEEKS = Number(process.argv[2] || 104);
 const RUNS = Number(process.argv[3] || 5);
+/** optional archetype: npm run sim 260 3 downtown entrepreneur contemporary */
+const DISTRICT = process.argv[4] || 'historic';
+const BACKGROUND = (process.argv[5] || 'heir') as Background;
+const STYLE = (process.argv[6] || 'renaissance') as StyleId;
 
 /** keep enough cash for this many weeks of upkeep */
 const RESERVE_WEEKS = 6;
@@ -141,7 +146,30 @@ function crates(s: GameState, stats: { crates: number; bigPulls: number }): Game
   return s;
 }
 
+/** play the museum type's channel: digs for archaeology, sponsors for everyone */
+function channels(s: GameState): GameState {
+  const m = E.activeMuseum(s);
+  if (E.canSponsor(s, m.id, 'building', null).ok) {
+    const firm = E.availableFirms(s, m.id)[0];
+    if (firm) s = E.courtSponsor(s, m.id, 'building', null, 52, firm).state;
+  }
+  // resolve returned digs with a plausible board result
+  for (const exp of E.expeditionsReady(s)) {
+    const ejected = Math.random() < 0.15;
+    s = E.resolveExpedition(s, exp.id, { finds: randInt(0, 2), shards: randInt(4, 14), ejected }).state;
+  }
+  if (E.museumTypeOf(s) === 'archaeological' && E.expeditionsActive(s).length === 0) {
+    const tier = s.funds > 400000 ? 'epic' : s.funds > 200000 ? 'rare' : s.funds > 80000 ? 'uncommon' : 'common';
+    if (s.funds > E.expeditionCost(s, tier) + s.lastExpenses * RESERVE_WEEKS)
+      s = E.commissionExpedition(s, tier, s.specialties[0], null).state;
+  }
+  return s;
+}
+
 function manage(s: GameState): GameState {
+  s = channels(s);
+  if (E.canStudioVisit(s)) s = E.studioVisit(s).state;
+  if (s.claim) s = E.answerClaim(s, Math.random() < 0.5).state;
   // fair ticket price for the current crowd
   s = E.setTicket(s, Math.round(E.fairTicket(E.activeMuseum(s))));
   // join houses as soon as reputation opens them
@@ -164,7 +192,7 @@ interface RunSummary { reached: Record<string, number | null>; final: string; li
 function run(verbose: boolean): RunSummary {
   let s = E.newGame();
   const choices = E.foundingArtworkChoices();
-  s = E.chooseFoundingArtwork(s, choices[0], choices);
+  s = E.foundMuseum(s, BACKGROUND, DISTRICT, STYLE, choices[0], choices);
   s = ensureSeason(E.nameGallery(s, 'Sim', 'Sim Gallery', START.defaultTicket));
   const reached: Record<string, number | null> = { house2: null, house3: null, firstRare: null, firstEpic: null, national: null, world: null };
   const lines: string[] = [];
@@ -199,7 +227,14 @@ function run(verbose: boolean): RunSummary {
         + `  cousins ${s.rivals.map(x => x.fame).join('/')}  ${s.league} #${leagueRank(s)}`);
     }
   }
-  const best = s.owned.map(id => ARTIFACT_BY_ID[id]).sort((a, b) => b.score - a.score)[0];
+  const best = s.owned.map(id => ARTIFACT_BY_ID[id]).sort((a, b) => b.score - a.score)[0]
+    || ARTIFACT_BY_ID['0611'];
+  const mix = s.annualReports?.[s.annualReports.length - 1]?.revenueMix;
+  const tot = mix ? Object.values(mix).reduce((n, v) => n + v, 0) || 1 : 1;
+  const r = E.totalReputation(s);
+  const rt = r.prestige + r.popularity + r.patronage || 1;
+  lines.push(`final year income: ${mix ? Object.entries(mix).map(([k, v]) => `${k} ${Math.round(v / tot * 100)}%`).join(', ') : 'n/a'}`
+    + ` -> ${E.fundingModel(mix)}; reputation P${Math.round(r.prestige / rt * 100)}% Pop${Math.round(r.popularity / rt * 100)}% Pat${Math.round(r.patronage / rt * 100)}%`);
   return {
     reached, lines,
     final: `fame ${E.totalFame(s)}, funds §${Math.round(s.funds).toLocaleString()}, `

@@ -1,6 +1,6 @@
 import type { GameState, Room, StyleId } from '../data/types';
 import { STYLES, districtOfBuilding, STATIC_MUSEUMS } from '../data/constants';
-import { activeMuseum, museumById, initiativeError, spendInitiative } from './game';
+import { activeMuseum, museumById, initiativeError, spendInitiative, districtRules, researchWeeksSaved } from './game';
 import { roomRatings, DECOR } from './ratings';
 import type { ThesisId } from './ratings';
 import { money, uid } from './util';
@@ -52,14 +52,14 @@ export function startStyleResearch(s:GameState,style:StyleId,nodeId:string):{sta
  const existing=s.styleResearch?.[style]; if(existing?.activeNode)return{state:s,error:'That style already has active research.'};
  if(existing?.completed?.includes(nodeId))return{state:s,error:'That project is already complete.'};
  if(s.funds<node.cost)return{state:s,error:`Research costs ${money(node.cost)}.`};
- const n=clone(s); spendInitiative(n); n.funds-=node.cost; n.styleResearch=n.styleResearch||{}; n.styleResearch[style]={level:(existing?.completed?.length||0),points:0,completed:[...(existing?.completed||[])],activeNode:nodeId,weeksLeft:node.weeks}; return{state:n};
+ const n=clone(s); spendInitiative(n); n.funds-=node.cost; n.styleResearch=n.styleResearch||{}; n.styleResearch[style]={level:(existing?.completed?.length||0),points:0,completed:[...(existing?.completed||[])],activeNode:nodeId,weeksLeft:Math.max(1,node.weeks-researchWeeksSaved(s))}; return{state:n};
 }
 
 export function progressDirectorSystems(s:GameState):GameState{
  const n=clone(s); n.styleResearch=n.styleResearch||{};
  for(const style of Object.keys(n.styleResearch) as StyleId[]){const rs=n.styleResearch[style];if(!rs?.activeNode)continue;rs.weeksLeft--;if(rs.weeksLeft<=0){rs.completed.push(rs.activeNode);rs.level=rs.completed.length;rs.activeNode=null;rs.weeksLeft=0;}}
  n.temporaryExhibitions=(n.temporaryExhibitions||[]).map(x=>({...x,weeksLeft:x.weeksLeft-1})).filter(x=>x.weeksLeft>0);
- const seg=visitorSegments(n); const visitors=Object.values(seg).reduce((a,b)=>a+b,0); n.memberships=Math.max(0,(n.memberships||0)+Math.round(seg.members/35)-Math.round((n.memberships||0)*.015)); const revenue=n.lastRevenue; const expenses=n.lastExpenses;
+ const seg=visitorSegments(n); const visitors=Object.values(seg).reduce((a,b)=>a+b,0); n.memberships=Math.max(0,(n.memberships||0)+Math.round(seg.members/35*districtRules(activeMuseum(n)).membershipMult)-Math.round((n.memberships||0)*.015)); const revenue=n.lastRevenue; const expenses=n.lastExpenses;
  const notes:string[]=[]; const rooms=activeMuseum(n).rooms.filter(r=>r.unlocked&&r.items.length);
  if(rooms.length){const weakest=rooms.map(r=>({r,d:detailedRoomRatings(n,r)})).sort((a,b)=>a.d.visitorAppeal-b.d.visitorAppeal)[0]; if(weakest.d.attractiveness<50)notes.push(`${STYLES[weakest.r.theme!].name} is losing visitors because its presentation is weak.`); if(weakest.d.interpretation<35)notes.push('Visitors want more labels, audio guidance, and context.');}
  n.weeklyReport={visitors,revenue,expenses,profit:revenue-expenses,headline:revenue>=expenses?'The museum finished the week in surplus.':'Operating costs exceeded income this week.',notes,segments:seg};

@@ -19,7 +19,9 @@ import { BUILDINGS, STATIC_MUSEUMS, STYLES } from '../data/constants';
 import {
   activeMuseum, atCapacity, budgetEffects, dailyVisitors, openMuseums,
   placedCount, totalFame, totalReputation, roomRatings,
+  addIncome, createCrate, districtRules, emptyMix, fundingModel, maybeRaiseClaim,
 } from './game';
+import { BACKGROUNDS } from '../data/identity';
 import { workOf } from './attribution';
 import { bandOf, BAND_NAMES } from './crates';
 
@@ -56,7 +58,24 @@ export const seasonLabel = (index: number) =>
 export const weekOfSeason = (s: GameState) => ((s.week - 1) % SEASON_WEEKS) + 1;
 
 export function initiativesFor(s: GameState): number {
-  return Math.min(6, 2 + Math.floor(s.staff.length / 2));
+  const bonus = s.background ? BACKGROUNDS[s.background].bonusInitiatives : 0;
+  return Math.min(7, 2 + Math.floor(s.staff.length / 2) + bonus);
+}
+
+/** what arrives with each new season: grants, the artists' crate, claims */
+function seasonStart(s: GameState): void {
+  const m = activeMuseum(s);
+  const grant = Math.round(totalReputation(s).prestige * districtRules(m).grantPerPrestige);
+  if (grant > 0) {
+    s.funds += grant;
+    addIncome(s, 'grants', grant);
+    s.log = [{ kind: 'good' as const, text: `Research grants this season: §${grant.toLocaleString()}.` }, ...s.log].slice(0, 60);
+  }
+  if (s.background === 'artist') {
+    s.attributions = { ...(s.attributions || {}) };
+    createCrate(s, 'studio', 'field', 3, s.specialties[0] || null, 'Gift crate from your artist friends');
+  }
+  maybeRaiseClaim(s);
 }
 
 /* --- leagues ------------------------------------------------ */
@@ -154,8 +173,9 @@ function applyBudget(s: GameState): void {
     s.endowment = (s.endowment || 0) + part('reserves');
     s.funds -= surplus - part('acquisitions');
   }
-  const income = (s.endowment || 0) * ENDOWMENT_YIELD;
+  const income = Math.round((s.endowment || 0) * ENDOWMENT_YIELD);
   s.funds += income;
+  addIncome(s, 'endowment', income);
   s.stocks = st;
 }
 
@@ -233,6 +253,8 @@ function buildAnnualReport(prev: GameState, s: GameState): AnnualReport {
     criticQuote: quotes[year % quotes.length],
     promotedTo, awards,
     stage: STAGE_FOR_LEAGUE[promotedTo || league],
+    revenueMix: s.yearMix ? { ...s.yearMix } : undefined,
+    fundingModel: fundingModel(s.yearMix),
   };
 }
 
@@ -280,8 +302,10 @@ export function seasonStep(prev: GameState, s: GameState): GameState {
       }
       yearStart = snapshot(next);
       ownedAtYearStart = [...next.owned];
+      next.yearMix = emptyMix();
     }
     beginSeason(next, index, cur.plan, yearStart, ownedAtYearStart);
+    seasonStart(next);
   }
   return next;
 }

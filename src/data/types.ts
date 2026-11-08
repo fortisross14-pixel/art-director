@@ -56,6 +56,7 @@ export interface BuildingDef {
   moveCost: number;
   maintenance: number;   // weekly upkeep expense
   capacity: number;      // comfortable daily visitors before crowds are turned away
+  starter?: boolean;     // a small first home, one per district
 }
 
 /* --- districts --------------------------------------------- */
@@ -346,6 +347,10 @@ export interface GameState {
   stocks?: BudgetStocks;          // what the budget lines have bought, decaying
   endowment?: number;             // invested reserves; pays a little every week
   discoveries?: { week: number; artifactId: string }[];  // confirmed sleepers
+  background?: Background;
+  revenueMix?: RevenueMix;        // last week's income by source
+  yearMix?: RevenueMix;           // income by source since the year began
+  claim?: RepatriationClaim | null;
   phase: Phase;
 }
 
@@ -359,7 +364,7 @@ export interface MarketPacing {
 
 /* --- crates (the pack-opening moment) ---------------------- */
 export type CrateTier = 'field' | 'major' | 'legendary';
-export type CrateSource = 'dig' | 'estate' | 'bequest';
+export type CrateSource = 'dig' | 'estate' | 'bequest' | 'studio';
 
 export interface CrateCard {
   artifactId: string;
@@ -466,6 +471,7 @@ export interface SeasonState {
   ownedAtStart: string[]; // to spot this season's acquisitions
   yearStart: SeasonSnapshot;
   ownedAtYearStart: string[];
+  studioVisited?: boolean;
 }
 
 export interface SeasonReview {
@@ -490,9 +496,27 @@ export interface AnnualReport {
   criticQuote: string;
   promotedTo: League | null;
   awards: string[];
+  revenueMix?: RevenueMix;
+  fundingModel?: string;
   stage: CareerStage;
 }
 
 export type CareerStage = 'early' | 'mid' | 'late';
 
 export interface Milestone { week: number; text: string; }
+
+/* --- identity (M4) ------------------------------------------ */
+export type Background = 'heir' | 'academic' | 'entrepreneur' | 'artist' | 'collector';
+export type MuseumType = 'archaeological' | 'oldmasters' | 'modern' | 'popculture' | 'worldcultures';
+
+export interface RevenueMix {
+  tickets: number; retail: number; sponsors: number;
+  grants: number; members: number; endowment: number;
+}
+
+/** a request to return an antiquity to its country of origin */
+export interface RepatriationClaim {
+  artifactId: string;
+  claimant: string;
+  week: number;
+}

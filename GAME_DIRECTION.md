@@ -548,6 +548,10 @@ UI addition for this pillar.
 
 ## 9. Milestones
 
+**Playtest builds:** after each milestone, `main` is fast-forwarded to
+the development branch, which deploys to GitHub Pages
+(https://fortisross14-pixel.github.io/art-director/).
+
 Each milestone is playable when it ships and has a **"done when"** check
 that the headless balance sim (`npm run sim`) or a play session can
 verify.
@@ -597,7 +601,7 @@ verify.
 **Done when:** one year is 4 seasons, about 30 minutes of play, and
 ends with a report and a rank change.
 
-### M4 (v1.1): Identity
+### M4 (v1.1): Identity ✅ shipped, see VERSION_11_NOTES.md
 **Scope:** R26–R28 and R30.
 - The founding draft.
 - District rule twists.
