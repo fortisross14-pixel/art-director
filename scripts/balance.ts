@@ -158,6 +158,11 @@ function channels(s: GameState): GameState {
     const ejected = Math.random() < 0.15;
     s = E.resolveExpedition(s, exp.id, { finds: randInt(0, 2), shards: randInt(4, 14), ejected }).state;
   }
+  // modern museums back living artists: commission from whoever is rising
+  if (E.museumTypeOf(s) === 'modern' && s.week % 4 === 0) {
+    const pickA = (s.artists || []).filter(a => a.alive && !a.signed).sort((a, b) => b.trend - a.trend)[0];
+    if (pickA && s.funds > s.lastExpenses * RESERVE_WEEKS * 2) s = E.commissionWork(s, pickA.id).state;
+  }
   if (E.museumTypeOf(s) === 'archaeological' && E.expeditionsActive(s).length === 0) {
     const tier = s.funds > 400000 ? 'epic' : s.funds > 200000 ? 'rare' : s.funds > 80000 ? 'uncommon' : 'common';
     if (s.funds > E.expeditionCost(s, tier) + s.lastExpenses * RESERVE_WEEKS)

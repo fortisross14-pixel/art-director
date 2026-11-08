@@ -38,12 +38,13 @@ import * as Season from '../engine/season';
 import { BACKGROUNDS, BACKGROUND_IDS, MUSEUM_TYPES, MUSEUM_TYPE_OF_STYLE, rulesFor } from '../data/identity';
 import { starterBuilding } from '../data/constants';
 import { SeasonPanel, AnnualReportPanel, HistoryPanel, TicketPresets } from './season';
+import { ArtistsTab } from './artists';
 import { money } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
 
 type Tab =
   | 'floor' | 'collection' | 'opportunities' | 'exploration'
-  | 'staff' | 'research' | 'finance' | 'city' | 'museums' | 'catalogue';
+  | 'staff' | 'research' | 'finance' | 'city' | 'museums' | 'catalogue' | 'artists';
 
 /* ============================================================
    ROOT — owns the active slot, routes home vs in-game
@@ -291,6 +292,8 @@ function Game({
       setState={setState} onArtifact={setOpenArtifactId} />;
   } else if (tab === 'collection') {
     body = <CodexTab state={state} apply={apply} onArtifact={setOpenArtifactId} />;
+  } else if (tab === 'artists') {
+    body = <ArtistsTab state={state} apply={apply} />;
   } else if (tab === 'catalogue') {
     body = <CatalogueTab state={state} onArtifact={setOpenArtifactId} />;
   } else if (tab === 'opportunities') {
@@ -345,6 +348,7 @@ function Shell({
     { title: 'Collection', items: [
       ['collection', 'Collection Vault', '🖼'],
       ['catalogue', 'Catalogue & Sets', '📖'],
+      ['artists', 'Living Artists', '🎨'],
       ['exploration', 'Exploration', '🧭'],
     ]},
     { title: 'Institution', items: [

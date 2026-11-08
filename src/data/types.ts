@@ -351,6 +351,9 @@ export interface GameState {
   revenueMix?: RevenueMix;        // last week's income by source
   yearMix?: RevenueMix;           // income by source since the year began
   claim?: RepatriationClaim | null;
+  artists?: LivingArtist[];
+  livingWorks?: Record<string, LivingWork>;
+  commissions?: Commission[];
   phase: Phase;
 }
 
@@ -519,4 +522,53 @@ export interface RepatriationClaim {
   artifactId: string;
   claimant: string;
   week: number;
+}
+
+/* --- living artists (M5) ------------------------------------ */
+export type ArtistStatus = 'emerging' | 'rising' | 'established' | 'star' | 'fading' | 'deceased';
+
+export interface LivingArtist {
+  id: string;
+  name: string;
+  style: StyleId;
+  medium: ArtType;
+  age: number;
+  /** public standing 0-100: what their work is worth today */
+  reputation: number;
+  /** hidden ceiling 0-100: where their career is heading */
+  potential: number;
+  /** last week's change, for the trend arrow */
+  trend: number;
+  alive: boolean;
+  /** a residency in progress: with you, or with a rival */
+  signed: { by: string; weeksLeft: number } | null;
+  /** your scouting estimate of potential, if any */
+  scouted: { low: number; high: number } | null;
+  prizes: number;
+  worksMade: number;
+  /** solo shows already given to this artist by the player */
+  soloShows: number;
+}
+
+/** a work by a living artist: its score follows the artist's reputation */
+export interface LivingWork {
+  id: string;
+  artistId: string;
+  title: string;
+  type: ArtType;
+  style: StyleId;
+  year: string;
+  /** this piece relative to the artist's typical work (0.7-1.35) */
+  quality: number;
+  madeWeek: number;
+  /** what you paid, if commissioned */
+  paid: number;
+  /** the highest rarity band already announced for this work */
+  notedBand?: number;
+}
+
+export interface Commission {
+  artistId: string;
+  weeksLeft: number;
+  price: number;
 }

@@ -611,7 +611,7 @@ ends with a report and a rank change.
 **Done when:** two sim runs with different districts and focuses end
 with visibly different revenue mixes and reputation profiles.
 
-### M5 (v1.2): Living artists
+### M5 (v1.2): Living artists ✅ shipped, see VERSION_12_NOTES.md
 **Scope:** R29.
 - Emerging artists with hidden potential.
 - Commissions, residencies and revaluation.

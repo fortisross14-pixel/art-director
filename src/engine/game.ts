@@ -37,6 +37,9 @@ import {
 } from '../data/identity';
 import type { DistrictRules, MuseumTypeDef } from '../data/identity';
 import { starterBuilding } from '../data/constants';
+import {
+  makeArtistPool, createLivingWork, commissionPrice, artistWeek, artistScore,
+} from './artistcore';
 export { roomRatings } from './ratings';
 
 type Result = { state: GameState; error?: string };
@@ -308,6 +311,9 @@ export function newGame(): GameState {
     studies: [],
     completedSets: [],
     signatureId: null,
+    artists: makeArtistPool(),
+    livingWorks: {},
+    commissions: [],
     phase: 'choose-specialty',
   };
 }
@@ -349,6 +355,9 @@ function fork(s: GameState): GameState {
     annualReports: [...(s.annualReports || [])],
     discoveries: [...(s.discoveries || [])],
     completedSets: [...(s.completedSets || [])],
+    artists: (s.artists || []).map(a => ({ ...a })),
+    livingWorks: { ...(s.livingWorks || {}) },
+    commissions: (s.commissions || []).map(c => ({ ...c })),
     log: [...s.log],
     staff: s.staff.map(m => ({ ...m })),
     candidates: s.candidates.map(m => ({ ...m })),
@@ -487,6 +496,153 @@ export function studioVisit(s: GameState): Result {
   next = logged(next, { kind: 'good', text: 'You toured the studios and came back with a crate of new work.' });
   return { state: next };
 }
+
+/* --- living artists: commissions, residencies, shows, scouting --- */
+function liveArtist(s: GameState, id: string) {
+  return (s.artists || []).find(a => a.id === id && a.alive);
+}
+export const COMMISSION_WEEKS = 4;
+export function residencyCost(rep: number): number {
+  return Math.round((600 + rep * 25) * 13 / 100) * 100;
+}
+export const SOLO_SHOW_COST = 3000;
+
+/** order a new work; it arrives in a few weeks. No initiative needed. */
+export function commissionWork(s: GameState, artistId: string): Result {
+  const a = liveArtist(s, artistId);
+  if (!a) return { state: s, error: 'That artist is no longer working.' };
+  if (a.signed && a.signed.by !== 'player') return { state: s, error: `${a.name} is in a rival's residency this season.` };
+  if ((s.commissions || []).some(c => c.artistId === artistId)) return { state: s, error: 'A commission is already under way.' };
+  const price = commissionPrice(a);
+  if (s.funds < price) return { state: s, error: `A commission costs ${money(price)}.` };
+  let next = fork(s);
+  next.funds -= price;
+  next.commissions = [...(next.commissions || []), { artistId, weeksLeft: COMMISSION_WEEKS, price }];
+  next = logged(next, { kind: 'good', text: `Commissioned a new work from ${a.name} for ${money(price)}.` });
+  return { state: next };
+}
+
+/** host the artist for a season: their career speeds up and you keep a work */
+export function startResidency(s: GameState, artistId: string): Result {
+  const a = liveArtist(s, artistId);
+  if (!a) return { state: s, error: 'That artist is no longer working.' };
+  if (a.signed) return { state: s, error: `${a.name} already has a residency this season.` };
+  const noInit = initiativeError(s);
+  if (noInit) return { state: s, error: noInit };
+  const cost = residencyCost(a.reputation);
+  if (s.funds < cost) return { state: s, error: `A season's residency costs ${money(cost)}.` };
+  let next = fork(s);
+  spendInitiative(next);
+  next.funds -= cost;
+  next.artists = (next.artists || []).map(x => x.id === artistId ? { ...x, signed: { by: 'player', weeksLeft: 13 } } : x);
+  addReputation(activeMuseum(next), 'patronage', 3);
+  chronicle(next, `${a.name} began a residency.`);
+  next = logged(next, { kind: 'good', text: `${a.name} begins a season-long residency (${money(cost)}).` });
+  return { state: next };
+}
+
+/** a solo show of an artist you collect: a boost for them and for you */
+export function soloShow(s: GameState, artistId: string): Result {
+  const a = liveArtist(s, artistId);
+  if (!a) return { state: s, error: 'That artist is no longer working.' };
+  const owned = s.owned.filter(id => s.livingWorks?.[id]?.artistId === artistId).length;
+  if (owned < 2) return { state: s, error: 'Own at least two of their works to give them a solo show.' };
+  const noInit = initiativeError(s);
+  if (noInit) return { state: s, error: noInit };
+  if (s.funds < SOLO_SHOW_COST) return { state: s, error: `A solo show costs ${money(SOLO_SHOW_COST)}.` };
+  let next = fork(s);
+  spendInitiative(next);
+  next.funds -= SOLO_SHOW_COST;
+  const boost = Math.min(10, 2 + totalFame(s) / 150) / (1 + a.soloShows * 0.5);
+  next.artists = (next.artists || []).map(x => x.id === artistId
+    ? { ...x, reputation: Math.min(100, x.reputation + boost), soloShows: x.soloShows + 1 } : x);
+  addReputation(activeMuseum(next), 'popularity', Math.round(4 + a.reputation / 10));
+  chronicle(next, `Solo show for ${a.name}.`);
+  next = logged(next, { kind: 'good', text: `${a.name}'s solo show opens (+${boost.toFixed(1)} reputation for the artist).` });
+  return { state: next };
+}
+
+/** send a curator or researcher to the studio to judge where the career is heading */
+export function scoutArtist(s: GameState, artistId: string): Result {
+  const a = liveArtist(s, artistId);
+  if (!a) return { state: s, error: 'That artist is no longer working.' };
+  const noInit = initiativeError(s);
+  if (noInit) return { state: s, error: noInit };
+  let next = fork(s);
+  spendInitiative(next);
+  const skill = Math.min(3, roleSkill(s, 'curator') + roleSkill(s, 'researcher'));
+  const width = Math.max(6, 26 - skill * 6);
+  const centre = a.potential + rand(-width / 3, width / 3);
+  const low = Math.max(0, Math.round(centre - width / 2)), high = Math.min(100, Math.round(centre + width / 2));
+  next.artists = (next.artists || []).map(x => x.id === artistId ? { ...x, scouted: { low, high } } : x);
+  next = logged(next, { kind: 'note', text: `Scouting report on ${a.name}: potential somewhere between ${low} and ${high}.` });
+  return { state: next };
+}
+
+/** the weekly turn of the art world: careers drift, commissions arrive,
+ *  residencies end, rivals sign the promising, revaluations are announced */
+function artistTick(s: GameState): void {
+  const shown = new Map<string, number>();
+  for (const m of openMuseums(s)) for (const r of m.rooms) for (const id of r.items) {
+    const w = s.livingWorks?.[id];
+    if (w) shown.set(w.artistId, (shown.get(w.artistId) || 0) + 1);
+  }
+  const fame = totalFame(s);
+  const exposure: Record<string, number> = {};
+  for (const [id, n] of shown) exposure[id] = Math.min(1, n * fame / 800);
+  // residencies with you that end this week leave a work behind
+  const ending = (s.artists || []).filter(a => a.signed?.by === 'player' && a.signed.weeksLeft <= 1 && a.alive);
+  const rivalEnding = (s.artists || []).filter(a => a.signed && a.signed.by !== 'player' && a.signed.weeksLeft <= 1 && a.alive);
+  for (const n of artistWeek(s, exposure)) {
+    const mine = s.owned.some(id => s.livingWorks?.[id]?.artistId === n.artistId);
+    pushLog(s, n.kind, n.text);
+    if (mine) chronicle(s, n.text);
+  }
+  for (const a of ending) {
+    const id = createLivingWork(s, a.id);
+    if (id) { s.owned = [...s.owned, id]; pushLog(s, 'good', `${a.name}'s residency ends; they leave you ${ARTIFACT_BY_ID[id].name}.`); }
+  }
+  for (const a of rivalEnding) {
+    const rival = s.rivals.find(r => r.id === a.signed!.by);
+    const id = createLivingWork(s, a.id);
+    if (rival && id) s.rivals = s.rivals.map(r => r.id === rival.id ? { ...r, collection: [...(r.collection || []), id] } : r);
+  }
+  // commissions arrive
+  const due = (s.commissions || []).filter(c => c.weeksLeft <= 1);
+  s.commissions = (s.commissions || []).filter(c => c.weeksLeft > 1).map(c => ({ ...c, weeksLeft: c.weeksLeft - 1 }));
+  for (const c of due) {
+    const id = createLivingWork(s, c.artistId, c.price);
+    if (id) { s.owned = [...s.owned, id]; pushLog(s, 'good', `Your commission has arrived: ${ARTIFACT_BY_ID[id].name} by ${ARTIFACT_BY_ID[id].author}.`); }
+  }
+  // each season the rivals sign promising artists
+  if (s.week % 13 === 1) {
+    for (const r of s.rivals) {
+      const keen = r.style && ['contemporary', 'modernism', 'popculture'].includes(r.style) ? 0.8 : 0.35;
+      if (Math.random() > keen) continue;
+      const free = (s.artists || []).filter(a => a.alive && !a.signed);
+      const target = free.map(a => ({ a, v: a.potential + rand(-15, 15) })).sort((x, y) => y.v - x.v)[0]?.a;
+      if (!target) continue;
+      s.artists = (s.artists || []).map(a => a.id === target.id ? { ...a, signed: { by: r.id, weeksLeft: 13 } } : a);
+      pushLog(s, 'note', `${r.name} has signed ${target.name} to a residency.`);
+    }
+  }
+  // revaluations: announce when an owned work climbs a rarity band
+  for (const id of s.owned) {
+    const w = s.livingWorks?.[id];
+    if (!w) continue;
+    const band = bandOf(workOf(s, id).score);
+    if (w.notedBand === undefined) { s.livingWorks = { ...s.livingWorks, [id]: { ...w, notedBand: band } }; continue; }
+    if (band > w.notedBand) {
+      s.livingWorks = { ...s.livingWorks, [id]: { ...w, notedBand: band } };
+      const art = workOf(s, id);
+      const paid = w.paid ? ` You paid ${money(w.paid)}; it is now worth about ${money(art.value)}.` : '';
+      pushLog(s, 'good', `REVALUED: ${art.name} by ${art.author} is now a ${BAND_NAMES[band]}!${paid}`);
+      if (band >= 2) chronicle(s, `${art.name} by ${art.author} rose to ${BAND_NAMES[band]}.`);
+    }
+  }
+}
+/** a living artist's typical score today */
+export const artistTypicalScore = (rep: number) => Math.round(artistScore(rep));
 
 /* --- repatriation claims (archaeological museums) ------------- */
 const CLAIMANTS: Partial<Record<StyleId, string[]>> = {
@@ -1606,7 +1762,20 @@ export function createCrate(
 ): Crate {
   const exclude = unavailableIds(s);
   const ids: string[] = [];
-  for (let i = 0; i < count; i++) {
+  const alive = (s.artists || []).filter(a => a.alive);
+  if (source === 'studio' && alive.length) {
+    // new work straight from the studios: mostly unknowns in a field
+    // crate, better-known names in a major one
+    for (let i = 0; i < count; i++) {
+      const weights = alive.map(a => tier === 'field' ? 110 - a.reputation : 10 + a.reputation
+        + (style && a.style === style ? 40 : 0));
+      let r = Math.random() * weights.reduce((n, w) => n + w, 0);
+      let artist = alive[0];
+      for (let j = 0; j < alive.length; j++) { r -= weights[j]; if (r <= 0) { artist = alive[j]; break; } }
+      const id = createLivingWork(s, artist.id);
+      if (id) ids.push(id);
+    }
+  } else for (let i = 0; i < count; i++) {
     const id = rollCardId(tier, style, s.specialties, exclude, minBand);
     if (!id) break;
     ids.push(id); exclude.add(id);
@@ -2535,6 +2704,7 @@ export function advanceWeek(s: GameState): GameState {
   }
 
   // attribution studies, completed sets, gifts from donors
+  artistTick(next);
   progressStudies(next);
   checkSets(next);
   rollBequest(next);

@@ -11,6 +11,7 @@
    ============================================================ */
 import type { Artifact, AttributionLabel, GameState } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
+import { livingArtifact } from './artistcore';
 
 /** how much of the work's true strength shows while doubtful */
 export const ATTRIBUTION_FACTOR: Record<AttributionLabel, number> = {
@@ -64,6 +65,9 @@ export function attributionLine(s: GameState, id: string): string {
  *  doubt over who made it. Every simulation path that cares about
  *  strength or price reads works through this. */
 export function workOf(s: GameState, id: string): Artifact {
+  // works by living artists are valued from the artist's reputation today
+  const living = s.livingWorks?.[id] ? livingArtifact(s, id) : null;
+  if (living) { ARTIFACT_BY_ID[id] = living; return living; }
   const art = ARTIFACT_BY_ID[id];
   const label = attributionOf(s, id);
   if (label === 'confirmed') return art;

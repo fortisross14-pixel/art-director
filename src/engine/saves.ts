@@ -6,6 +6,7 @@
 import type { GameState, SaveSlot } from '../data/types';
 import { makeCandidates } from './game';
 import { ensureSeason } from './season';
+import { makeArtistPool, registerAllLivingWorks } from './artistcore';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { ROOM_CAPACITY } from '../data/constants';
 
@@ -76,6 +77,11 @@ function migrateState(state: Partial<GameState>): GameState {
   if (!Array.isArray(s.studies)) s.studies = [];
   if (!Array.isArray(s.completedSets)) s.completedSets = [];
   if (s.signatureId === undefined) s.signatureId = null;
+  // v1.2: living artists
+  if (!Array.isArray(s.artists)) s.artists = makeArtistPool();
+  if (!s.livingWorks || typeof s.livingWorks !== 'object') s.livingWorks = {};
+  if (!Array.isArray(s.commissions)) s.commissions = [];
+  registerAllLivingWorks(s);
   if (s.auction && !s.auction.rivalName) {
     s.auction.rivalName = 'A private collector';
     s.auction.rivalId = null;
