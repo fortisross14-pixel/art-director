@@ -527,9 +527,15 @@ UI addition for this pillar.
   focus.
 - **R43** A visual Annual Report and Hall of Fame, and a phone-first
   layout pass.
+- **R43b** Three proposed visual identities to choose from (made with
+  the design skills), then navigation, animations, shading and depth in
+  the chosen one.
 
 ### Balance
 - **R44** Sim bots per archetype, plus careless and optimal bots.
+- **R44b** Three career stages (early fill, mid expand, late compete),
+  each with its own bottleneck, visible transitions and target
+  lengths.
 - **R45** Target curves per milestone, checked in CI.
 - **R46** Late-game spending sinks so income never outruns what's worth
   buying.
@@ -623,6 +629,23 @@ different city.
 
 ### M7 (v1.4): Visual identity
 **Scope:** R39–R43.
+- **Process, as in the F1 and Football GM projects:** use the design
+  skills to propose **3 distinct visual identities** as mock-ups of the
+  same screens (floor, crate reveal, Annual Report). Pick one, then
+  apply it everywhere. Example directions:
+  - *Gilded Salon:* deep reds, gold leaf, serif type, oil-paint texture.
+  - *Modern Institution:* white cube, a strong grid, one accent colour,
+    museum-signage typography.
+  - *Cosy Tycoon:* the current chunky pixel-dollhouse look, polished.
+- **Navigation** redesigned with the chosen identity: the 4 hubs, a phone
+  bottom bar, and clear "what needs me now" badges.
+- **Motion and depth:**
+  - Card flip and frame-glow animations for reveals.
+  - Hammer-fall and "SOLD" animations at auction.
+  - Visitors walking the floor.
+  - Number tick-ups on review screens.
+  - Layered shadows and shading for frames, rooms and panels.
+  - Respect reduced-motion settings.
 - Pick one name (*Art Director* vs *Museum Wars*), with a logo and
   title screen to match.
 - Artwork images: public-domain images for real works, and a stylised
@@ -642,6 +665,23 @@ and every Rare+ work shows an image or a deliberate stylised card.
 
 ### M8 (v1.5): Balance
 **Scope:** R44–R48.
+
+**The three stages of a career** are the backbone of balance. Each one
+has its own goal, bottleneck and target length:
+
+| Stage | Goal | Bottleneck | Typical works | Target length |
+|---|---|---|---|---|
+| **Early: fill the gallery** | Fill a small gallery with *any* works: commons, coins, sketches, one or two lucky rares | Cash and wall space; every purchase matters | Common–Rare | Year 1–2 |
+| **Mid: expand and diversify** | More rooms, a bigger building, new collections in different styles and topics, cohesive rooms and sets | Space, staff time, choosing which collections to grow | Uncommon–Epic | Years 2–8 |
+| **Late: compete with the world** | One of the best museums in the world, built on Epic, Legendary and World Icon works | Supply of top works, rival competition, prestige | Epic–World Icon | Years 8+ |
+
+- Each stage changes what "good play" means. Early you buy anything
+  that hangs; mid you curate and specialise; late you hunt specific
+  masterpieces and outbid the world.
+- Stage transitions are visible moments in the Annual Report: *"Casa
+  Arte is no longer a small gallery."*
+- The sim bots must show all three stages in order, at roughly these
+  lengths, for every archetype.
 - Extend `npm run sim` with bot personalities, one per museum
   archetype, plus a careless bot and an optimal bot.
 - Target curves per milestone: time to each league, first Epic, first
