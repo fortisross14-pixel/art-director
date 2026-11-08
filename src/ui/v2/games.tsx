@@ -48,7 +48,7 @@ export function GalaGame({ state, apply, onClose }: { state: GameState; apply: A
           <button key={x.id} onClick={() => setMember(x)} className={x.met ? 'met' : ''}>
             <span className="v2-face">{initials(x.name)}</span><b>{x.name}</b>
             <span className="v2-owns">{x.collection.map(id => <i key={id} style={{ background: rarityForScore(ARTIFACT_BY_ID[id].score).hex }} />)}</span>
-            <small className="v2-metline">{x.met ? `Met ${x.met}× · you know ${Soc.knownCount(x)} of 8 tastes` : 'New face'}</small>
+            <small className="v2-metline">{x.met ? `You know ${Soc.knownCount(x)} of their 8 tastes` : 'Someone new'}</small>
             {x.met > 0 && <span className="v2-tastes mini">{tasteChips(x.known)}</span>}
           </button>))}
       </div>
@@ -184,7 +184,7 @@ export function DigGame({ state, expedition, apply, onDone }: {
           <button onClick={dig} disabled={g.trenches[sel].state !== 'open'}>Dig deeper</button>
           <button className="ghost" onClick={() => setG(C.bankTrench(g, sel))} disabled={g.trenches[sel].state !== 'open' || !g.trenches[sel].layers.length}>Bank this trench</button>
         </div>
-      ) : <button className="v2-wide" onClick={finish}>{cards ? 'Open the crate →' : 'Head home'}</button>}
+      ) : <button className="v2-wide" onClick={finish}>{cards ? 'Open the crate' : 'Head home'}</button>}
       {!over && <button className="ghost v2-wide" onClick={() => setG({ ...g, digs: 0 })}>Stop digging and head home</button>}
     </div>
   );

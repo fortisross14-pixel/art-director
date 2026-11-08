@@ -86,6 +86,8 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
   const room = m.rooms.find(r => r.id === roomId) as Room | undefined;
   const [sheet, setSheet] = useState<Sheet>(null);
   const [name, setName] = useState(room ? E.roomName(room) : '');
+  // the moment a work goes up: which frame, and what it did to the room
+  const [hung, setHung] = useState<{ id: string; gain: number } | null>(null);
   if (!room) return null;
   const rr = D.detailedRoomRatings(state, room);
   const perf = D.roomPerformance(state, room);
@@ -105,6 +107,10 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
   const hang = (id: string) => {
     const res = E.placeArtifact({ ...state, pendingItemId: id }, room.id);
     apply(res); setSheet(null);
+    if (!res.error) {
+      const after = res.state.museums.flatMap(x => x.rooms).find(r => r.id === room.id && r.items.includes(id));
+      setHung({ id, gain: after ? D.detailedRoomRatings(res.state, after).visitorAppeal - rr.visitorAppeal : 0 });
+    }
   };
   const ratings: [string, number][] = [
     ['Visitor appeal', rr.visitorAppeal], ['Art quality', rr.artQuality], ['Attractiveness', rr.attractiveness],
@@ -116,7 +122,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
       <div className="v2-gtop">
         <button className="v2-round" onClick={onBack} aria-label="Back to the floor">←</button>
         <div className="v2-gname">
-          <label htmlFor="gname">{room.hallName} · tap to rename</label>
+          <label htmlFor="gname">{room.hallName}. Tap the name to change it.</label>
           <input id="gname" value={name} onChange={e => setName(e.target.value)}
             onBlur={() => setState(E.renameRoom(state, room.id, name.trim() === E.roomName({ ...room, name: undefined }) ? '' : name.trim()))} />
         </div>
@@ -131,13 +137,15 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
             const art = Att.workOf(state, id);
             const isSig = state.signatureId === id;
             return (
-              <button key={k} className={'v2-work' + (isSig ? ' sig' : '')} style={{ borderColor: rarityForScore(art.score).hex }} onClick={() => setSheet({ kind: 'work', id })}>
+              <button key={k} className={'v2-work' + (isSig ? ' sig' : '') + (hung?.id === id ? ' just' : '')} style={{ borderColor: rarityForScore(art.score).hex }} onClick={() => setSheet({ kind: 'work', id })}>
                 <Thumb artifact={art} size="lg" />
                 <span>{art.name}</span>
               </button>
             );
           })}
         </div>
+        {hung && <div className="v2-hungnote" key={hung.id} onAnimationEnd={() => setHung(null)}>
+          <b className={hung.gain >= 0 ? 'up' : 'down'}>{hung.gain >= 0 ? '+' : ''}{hung.gain}</b> appeal</div>}
         <div className="v2-floorline" />
         <div className="v2-people" aria-hidden="true">
           {Array.from({ length: 14 }, (_, i) => <span key={i} className={i < figures ? 'here' : ''} style={{ animationDelay: `${(i * 0.37) % 3}s` }}><i /><b /></span>)}
@@ -173,8 +181,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
           <div className="present-sheet" onClick={e => e.stopPropagation()}>
             <button className="v2-sheetclose" onClick={() => setSheet(null)} aria-label="Close">×</button>
             {sheet.kind === 'hang' && <>
-              <div className="kicker">Hang a work</div>
-              <h2>From your storage</h2>
+              <h2>Hang a work</h2>
               {!storage.length && !loans.length && <p className="empty-note">Nothing in storage. Win something at auction, open a crate, or commission an artist.</p>}
               {loans.map(l => {
                 const art = ARTIFACT_BY_ID[l.artifactId];
@@ -207,8 +214,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
               </>;
             })()}
             {sheet.kind === 'staff' && <>
-              <div className="kicker">Assign {sheet.role === 'curator' ? 'a curator' : 'an educator'}</div>
-              <h2>Who looks after this room?</h2>
+              <h2>{sheet.role === 'curator' ? 'Who curates this room?' : 'Who teaches in this room?'}</h2>
               {state.staff.filter(x => x.role === sheet.role).map(x => (
                 <button key={x.id} className="v2-pick" onClick={() => { setState(D.assignRoomStaff(state, room.id, sheet.role, x.id)); setSheet(null); }}>
                   <span className="v2-avatar">{x.name.split(' ').map(y => y[0]).join('').slice(0, 2)}</span>

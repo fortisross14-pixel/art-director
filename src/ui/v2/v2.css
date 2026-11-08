@@ -14,11 +14,11 @@
 .v2-tokens i.spent, .v2-initiatives i.spent { background: transparent; border: 2px solid var(--s-gold-deep); box-shadow: none; }
 .salon .v2 .salon-hubs { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .v2-muted { color: var(--s-muted); font-size: 12.5px; }
-.v2-label { font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-muted); }
+.v2-label { font-family: var(--s-serif); font-style: italic; font-size: 14px; color: var(--s-muted); }
 .v2-h3 { font-family: var(--s-serif); font-size: 22px; margin: 16px 0 8px; }
 .salon .v2-wide { width: 100%; margin-top: 10px; min-height: 52px; }
 .salon .v2-back { margin-bottom: 8px; }
-.kicker { font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--s-gold); }
+.kicker { font-family: var(--s-serif); font-style: italic; font-size: 15px; color: var(--s-gold); }
 .v2-sheetbtns { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 .v2-sheetbtns.two, .v2-sheetbtns.three { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .v2-sheetbtns.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -34,13 +34,13 @@
 .v2-quiet b { font-family: var(--s-serif); font-size: 24px; }
 .v2-quiet span { color: var(--s-muted); font-size: 13px; }
 .v2-events { display: flex; flex-direction: column; gap: 10px; }
-.v2-event { display: flex; gap: 12px; align-items: center; padding: 12px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: 3px; animation: rise 0.4s ease both; }
+.v2-event { display: flex; gap: 12px; align-items: center; padding: 12px; background: var(--s-surface); border: 1px solid var(--s-line); border-radius: 3px; }
 .v2-event.k-auction, .v2-event.k-gala, .v2-event.k-dealer, .v2-event.k-estate { border-left: 3px solid var(--s-gold); }
 .v2-event-icon { width: 46px; height: 46px; flex: 0 0 auto; border-radius: 50%; background: var(--s-surface-2); border: 1px solid var(--s-gold); display: flex; align-items: center; justify-content: center; font-family: var(--s-serif); font-size: 22px; font-weight: 700; color: var(--s-gold-bright); }
 .v2-event-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .v2-event-body b { font-family: var(--s-serif); font-size: 19px; line-height: 1.15; }
 .v2-event-body span { font-size: 12.5px; color: var(--s-muted); }
-.v2-event-body small { font-size: 10.5px; color: var(--s-bad); letter-spacing: 0.08em; text-transform: uppercase; }
+.v2-event-body small { font-size: 10.5px; color: var(--s-bad); font-weight: 600; }
 .v2-event-actions { display: flex; flex-direction: column; gap: 6px; }
 .salon .v2-event-actions button { min-width: 72px; min-height: 42px; padding: 6px 10px; }
 .salon .v2-event-actions button.ghost { min-height: 32px; font-size: 12px; color: var(--s-muted); }
@@ -63,7 +63,7 @@
 .v2-capacity i, .v2-ratings i, .v2-field i, .v2-charm i { display: block; height: 8px; background: var(--s-deep); border: 1px solid var(--s-line-soft); margin-top: 4px; }
 .v2-capacity em, .v2-ratings em, .v2-field em, .v2-charm em { display: block; height: 100%; background: var(--s-gold); transition: width 0.5s; }
 .v2-rooms { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.salon .v2-room { min-height: 128px; background: var(--s-surface); color: var(--s-ivory); border: 3px double var(--s-gold-deep); border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 12px; text-align: left; animation: rise 0.4s ease both; }
+.salon .v2-room { min-height: 128px; background: var(--s-surface); color: var(--s-ivory); border: 3px double var(--s-gold-deep); border-radius: 2px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; padding: 12px; text-align: left; }
 .salon .v2-room:hover:not(:disabled) { background: var(--s-surface-2); border-color: var(--s-gold); }
 .salon .v2-room.unthemed { border-style: dashed; border-width: 1px; }
 .salon .v2-room.locked { border: 1px dashed var(--s-line); align-items: center; justify-content: center; background: transparent; color: var(--s-gold); }
@@ -76,11 +76,11 @@
 
 /* --- the gallery screen -------------------------------------- */
 .v2-gallery { }
-.v2-gallery > .v2-gtop, .v2-gallery > .v2-wall, .v2-gallery > .v2-staff { animation: rise 0.35s ease both; }
+.v2-gallery > .v2-wall { animation: rise 0.3s ease both; }
 .v2-gtop { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .salon .v2-round { width: 46px; height: 46px; min-height: 46px; padding: 0; border-radius: 50%; background: transparent; color: var(--s-ivory); border: 1px solid var(--s-line); font-size: 20px; flex: 0 0 auto; }
 .v2-gname { flex: 1; min-width: 0; }
-.v2-gname label { display: block; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-gold); }
+.v2-gname label { display: block; font-family: var(--s-serif); font-style: italic; font-size: 13px; color: var(--s-gold); }
 .salon .v2-gname input { width: 100%; background: transparent; border: 0; border-bottom: 1px dashed var(--s-line); border-radius: 0; padding: 2px 0; min-height: 40px; font-family: var(--s-serif); font-size: 22px; text-overflow: ellipsis; font-weight: 700; color: var(--s-ivory); }
 .salon .v2-stylechip { flex: 0 0 auto; min-height: 36px; padding: 4px 12px; border-radius: 18px; background: var(--s-surface); border: 1px solid var(--s-gold); color: var(--s-gold-bright); font-size: 12px; }
 .v2-wall { padding: 18px 10px 12px; background: linear-gradient(#3A2226, #2A1619); border: 1px solid var(--s-line); outline: 1px solid rgba(201,162,75,0.2); outline-offset: -6px; }
@@ -176,7 +176,7 @@
 .v2-game { animation: rise 0.35s ease both; }
 .v2-game h2 { font-family: var(--s-serif); font-size: 30px; margin: 2px 0 12px; }
 .v2-guests { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.salon .v2-guests button { min-height: 148px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px; background: var(--s-surface-2); color: var(--s-ivory); border: 1px solid var(--s-line); animation: rise 0.4s ease both; }
+.salon .v2-guests button { min-height: 148px; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px; background: var(--s-surface-2); color: var(--s-ivory); border: 1px solid var(--s-line); }
 .v2-guests b { font-family: var(--s-serif); font-size: 17px; text-align: center; line-height: 1.1; }
 .v2-face { width: 58px; height: 58px; flex: 0 0 auto; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #5A3A2E, #2A1619); border: 2px solid var(--s-gold); display: flex; align-items: center; justify-content: center; font-family: var(--s-serif); font-size: 28px; font-weight: 700; color: var(--s-gold-bright); }
 .v2-face.big { width: 70px; height: 70px; font-size: 34px; }
@@ -250,7 +250,7 @@
 .v2-ev.e-fake { border-color: #B8432F; color: #B8432F; } .v2-ev.e-odd { border-color: #7A4AA8; color: #7A4AA8; }
 .v2-ev.e-gap { border-color: #8A6A2E; color: #8A6A2E; } .v2-ev.e-stolen { border-color: #2D5FA8; color: #2D5FA8; }
 .v2-askprice { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 14px; background: var(--s-surface); border: 1px solid var(--s-line); }
-.v2-askprice span { font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--s-muted); }
+.v2-askprice span { font-family: var(--s-serif); font-style: italic; font-size: 14px; color: var(--s-muted); }
 .v2-askprice b { font-family: var(--s-serif); font-size: 42px; line-height: 1; animation: bump 0.4s ease; }
 .v2-askprice i { font-family: var(--s-serif); font-size: 17px; color: var(--s-muted); }
 
@@ -266,7 +266,7 @@
 /* --- picker tiles (thesis, style, decor, research) ------------ */
 .v2-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 .salon .v2-tile, .v2-tile { position: relative; min-height: 132px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 10px;
-  background: var(--s-surface-2); color: var(--s-ivory); border: 1px solid var(--s-line); border-radius: 3px; text-align: left; animation: rise 0.35s ease both; }
+  background: var(--s-surface-2); color: var(--s-ivory); border: 1px solid var(--s-line); border-radius: 3px; text-align: left; }
 .salon .v2-tile:hover:not(:disabled) { background: #3A2226; border-color: var(--s-gold-deep); }
 .salon .v2-tile.sel, .v2-tile.sel { border: 2px solid var(--s-gold); }
 .v2-tile.locked { opacity: 0.55; }
@@ -308,7 +308,7 @@
 .v2-reach em { display: block; height: 100%; background: var(--s-gold); }
 .v2-reach b { font-family: var(--s-serif); font-size: 19px; color: var(--s-ivory); text-align: right; }
 .v2-artists { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-.salon .v2-artist { display: flex; align-items: center; gap: 10px; min-height: 70px; padding: 10px; background: var(--s-surface); color: var(--s-ivory); border: 1px solid var(--s-line); text-align: left; animation: rise 0.35s ease both; }
+.salon .v2-artist { display: flex; align-items: center; gap: 10px; min-height: 70px; padding: 10px; background: var(--s-surface); color: var(--s-ivory); border: 1px solid var(--s-line); text-align: left; }
 .v2-artist-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .v2-artist-body b { font-family: var(--s-serif); font-size: 18px; }
 .v2-artist-body small { font-size: 11.5px; color: var(--s-muted); }
@@ -328,3 +328,30 @@
 .salon .v2-sheetclose { position: sticky; top: 0; float: right; z-index: 2; width: 44px; height: 44px; min-height: 44px; padding: 0; margin: -6px -6px 0 0;
   border-radius: 50%; background: var(--s-surface); color: var(--s-ivory); border: 1px solid var(--s-line); font-size: 24px; line-height: 1; }
 .salon .v2-tile.compact, .v2-tile.compact { min-height: 74px; padding: 10px; }
+
+/* --- the one orchestrated moment: a work goes up on the wall --- */
+.salon .v2-work.just { animation: hang-in 0.9s cubic-bezier(.2,.9,.3,1.2) both; }
+.salon .v2-work.just .thumb { animation: glint 1.2s ease 0.5s both; }
+@keyframes hang-in {
+  0% { transform: translateY(-40px) rotate(-6deg); opacity: 0; }
+  55% { transform: translateY(4px) rotate(2deg); opacity: 1; }
+  75% { transform: translateY(0) rotate(-1deg); }
+  100% { transform: none; }
+}
+@keyframes glint {
+  0% { box-shadow: 0 6px 12px rgba(0,0,0,0.5); }
+  40% { box-shadow: 0 0 0 3px var(--s-gold-bright), 0 0 28px rgba(227,196,120,0.8); }
+  100% { box-shadow: 0 6px 12px rgba(0,0,0,0.5); }
+}
+.v2-wall { position: relative; }
+.v2-hungnote { position: absolute; left: 0; right: 0; top: 42%; text-align: center; pointer-events: none; font-family: var(--s-serif); font-size: 18px; color: var(--s-ivory);
+  text-shadow: 0 2px 8px #000; animation: rise-fade 1.8s ease both; }
+.v2-hungnote b { font-size: 34px; margin-right: 4px; } .v2-hungnote b.up { color: var(--s-gold-bright); } .v2-hungnote b.down { color: var(--s-bad); }
+@keyframes rise-fade { 0% { opacity: 0; transform: translateY(10px); } 20% { opacity: 1; transform: none; } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-14px); } }
+@media (prefers-reduced-motion: reduce) {
+  .salon .v2-work.just, .salon .v2-work.just .thumb, .v2-hungnote, .v2-wall, .v2-game { animation-duration: 0.01s !important; animation-delay: 0s !important; }
+}
+/* a button's price sits under its label */
+.salon button .cost { display: block; font-size: 11.5px; font-weight: 500; opacity: 0.8; margin-top: 2px; font-family: var(--s-sans, inherit); }
+.salon .panel h2 .sub, .salon .present-sheet h2 .sub { text-transform: none; letter-spacing: 0; font-family: var(--s-serif); font-style: italic; font-weight: 400; font-size: 15px; color: var(--s-gold); margin-left: 8px; }
+.salon .kicker, .salon .present-sheet .kicker { text-transform: none; letter-spacing: 0; font-family: var(--s-serif); font-style: italic; font-size: 15px; }

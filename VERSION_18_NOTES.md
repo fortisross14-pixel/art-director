@@ -45,3 +45,10 @@
   - Old saves know Major digs and the theses their rooms use.
   - An old save knows 6 artists.
 - The balance bot uses the new research. The stage pacing from v17 still holds: National League in Years 2–3, World League in Years 6–9.
+
+## Design pass (frontend-design skill)
+- **Motion answers your actions:** list items no longer slide in on every screen. The one choreographed moment is hanging a work: the frame drops onto the wall, settles with a swing and a gold glint, and the change in appeal rises off the wall. Reduced-motion settings are respected.
+- **Plainer labels:** small all-caps labels and stacked headings are gone. Labels are sentence case, in italic serif.
+- **Prices below the button label:** costs sit on a second line ("Visit the studios", then "§600 and 1 initiative, meet two artists") instead of being strung together with "·".
+- **No decorative arrows** on buttons ("End the week", "Open the crate").
+- **Copy in plain words**, from the player's side: "Under way" instead of "In the library", "You know 5 of their 8 tastes", and full sentences for artists.

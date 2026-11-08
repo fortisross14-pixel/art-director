@@ -26,6 +26,11 @@ export function ThesisIcon({ id }: { id: D.ThesisId }) {
   );
 }
 
+/** knowledge of a style, as five marks */
+export function Pips({ n }: { n: number }) {
+  return <span className="v2-pips" aria-label={`Knowledge ${n} of 5`}>{[1, 2, 3, 4, 5].map(i => <i key={i} className={i <= n ? 'on' : ''} />)}</span>;
+}
+
 const appealWith = (s: GameState, room: Room, patch: Partial<Room>) =>
   D.detailedRoomRatings(s, { ...room, ...patch }).visitorAppeal;
 
@@ -43,7 +48,7 @@ export function ThesisPicker({ state, room, onPick, onStyle }: {
   const now = D.detailedRoomRatings(state, room).visitorAppeal;
   return (
     <>
-      <div className="kicker">Curatorial thesis</div><h2>What is this room about?</h2>
+      <h2>What is this room about?</h2>
       <div className="v2-tiles">
         {(Object.keys(D.THESES) as D.ThesisId[]).map(t => {
           const open = known.includes(t);
@@ -56,7 +61,7 @@ export function ThesisPicker({ state, room, onPick, onStyle }: {
               <b>{D.THESES[t].name}</b>
               <small>{D.THESES[t].blurb}</small>
               {!open ? <em className="v2-delta">Research it first</em>
-                : needsStyle ? <em className="v2-delta">Pick a style →</em>
+                : needsStyle ? <em className="v2-delta">Choose a style</em>
                 : cur !== t ? <Delta now={now} then={appealWith(state, room, patch)} /> : <em className="v2-delta">Current</em>}
             </button>
           );
@@ -80,7 +85,7 @@ export function StylePicker({ state, room, onPick }: { state: GameState; room: R
   const shown = new Set(state.museums.flatMap(x => x.rooms.flatMap(r => r.items)));
   return (
     <>
-      <div className="kicker">Style survey</div><h2>Which style?</h2>
+      <h2>Which style will it survey?</h2>
       <div className="v2-tiles">
         {state.specialties.map(st => {
           const inRoom = room.items.filter(id => ARTIFACT_BY_ID[id]?.style === st).length;
@@ -89,7 +94,8 @@ export function StylePicker({ state, room, onPick }: { state: GameState; room: R
             <button key={st} className={'v2-tile' + (room.theme === st ? ' sel' : '')} onClick={() => onPick(st)}>
               <span className="v2-tile-swatch" style={{ background: STYLE_HUE[st] || '#777' }} />
               <b>{STYLES[st].name}</b>
-              <small>{inRoom} in this room · {stored} in storage · {R.KNOWLEDGE_NAMES[R.knowledgeOf(state, st)]}</small>
+              <Pips n={R.knowledgeOf(state, st)} />
+              <small>{inRoom} hanging here, {stored} in storage</small>
               <Delta now={now} then={appealWith(state, room, { theme: st, thesis: 'movement' })} />
             </button>
           );
@@ -112,7 +118,7 @@ export function DecorPicker({ state, room, onPick }: { state: GameState; room: R
   const now = D.detailedRoomRatings(state, room).visitorAppeal;
   return (
     <>
-      <div className="kicker">Decor</div><h2>How should it feel?</h2>
+      <h2>How should the room feel?</h2>
       <div className="v2-tiles">
         {(Object.keys(D.DECOR) as (keyof typeof D.DECOR)[]).map(k => (
           <button key={k} className={'v2-tile' + ((room.decorStyle || 'classic') === k ? ' sel' : '')} onClick={() => onPick(k)}>

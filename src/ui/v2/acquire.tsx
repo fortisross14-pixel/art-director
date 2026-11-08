@@ -38,7 +38,7 @@ function Calendar({ state, nav }: Props) {
       <div className="panel v2-today" onClick={() => nav.go('week', 'week')} role="button" tabIndex={0}>
         <div className="kicker">This week</div>
         <b>{now.length ? now.map(e => e.title).join(' · ') : 'Nothing that expires this week'}</b>
-        <span>Play it from the Week menu →</span>
+        <span>Play it from the Week menu</span>
       </div>
       {[...byWeek.entries()].map(([w, list]) => (
         <div key={w} className="v2-calweek">

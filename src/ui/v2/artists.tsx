@@ -26,16 +26,15 @@ export function ArtistsPage({ state, apply }: { state: GameState; apply: Apply }
   return (
     <>
       {E.canStudioVisit(state) && <div className="panel v2-callout"><b>A crate from the studios</b>
-        <span>Brand-new work from the artists you know.</span>
-        <button onClick={() => apply(E.studioVisit(state))}>Open a studio crate · §2,500 · 1 initiative</button></div>}
+        <span>Brand-new work, straight from working artists.</span>
+        <button onClick={() => apply(E.studioVisit(state))}>Open a studio crate<span className="cost">§2,500 and 1 initiative</span></button></div>}
 
       <div className="panel">
-        <div className="kicker">Your circle · {known.length} artist{known.length === 1 ? '' : 's'}</div>
-        <h2>Meet more artists</h2>
+        <h2>Artists you know<span className="sub">{known.length}</span></h2>
         <div className="v2-reach"><span>Your curators can spot talent up to</span>
           <i><em style={{ width: `${reach}%` }} /></i><b>{reach}</b></div>
-        <p className="v2-muted">Better curators see further: more established artists, bigger names. Breakout stars find you on their own.</p>
-        <button className="v2-wide" onClick={() => apply(E.findArtists(state))}>Visit the studios · {money(E.STUDIO_ROUND_COST)} · 1 initiative</button>
+        <p className="v2-muted">Better curators can spot more established artists. Breakout stars find you on their own.</p>
+        <button className="v2-wide" onClick={() => apply(E.findArtists(state))}>Visit the studios<span className="cost">{money(E.STUDIO_ROUND_COST)} and 1 initiative, meet two artists</span></button>
       </div>
 
       {commissions.length > 0 && <p className="empty-note">Commissions under way: {commissions.map(c =>
@@ -48,19 +47,19 @@ export function ArtistsPage({ state, apply }: { state: GameState; apply: Apply }
       {a && (
         <div className="present" onClick={() => setOpen(null)}>
           <div className="present-sheet" onClick={e => e.stopPropagation()}>
-            <div className="kicker">{STYLES[a.style].name} · {a.medium} · {statusFor(a)}</div>
             <h2>{a.name}</h2>
-            <p className="empty-note">{a.alive ? `Age ${a.age}` : 'Deceased'} · reputation {Math.round(a.reputation)}{a.prizes ? ` · ${a.prizes} prize${a.prizes > 1 ? 's' : ''}` : ''}
-              {' · '}potential {a.scouted ? `${a.scouted.low}–${a.scouted.high}` : 'unknown'}</p>
+            <p className="empty-note">{statusFor(a).charAt(0).toUpperCase() + statusFor(a).slice(1)} {STYLES[a.style].name.toLowerCase()} artist working in {a.medium.toLowerCase()}{a.alive ? `, age ${a.age}` : ', now deceased'}.
+              {' '}Reputation {Math.round(a.reputation)}{a.prizes ? `, ${a.prizes} prize${a.prizes > 1 ? 's' : ''}` : ''}.
+              {' '}{a.scouted ? `Potential between ${a.scouted.low} and ${a.scouted.high}.` : 'Potential unknown.'}</p>
             {a.signed && <p className="v2-muted">{a.signed.by === 'player' ? `In residency with you, ${a.signed.weeksLeft} weeks left.` : 'In residency with a rival.'}</p>}
             {a.alive && <div className="v2-sheetbtns">
               <button disabled={!!a.signed && a.signed.by !== 'player'} onClick={() => { apply(E.commissionWork(state, a.id)); setOpen(null); }}>
-                Commission a work · {money(commissionPrice(a))} · {E.COMMISSION_WEEKS} weeks</button>
+                Commission a work<span className="cost">{money(commissionPrice(a))}, ready in {E.COMMISSION_WEEKS} weeks</span></button>
               <button className="ghost" disabled={!!a.signed} onClick={() => { apply(E.startResidency(state, a.id)); setOpen(null); }}>
-                Residency · {money(E.residencyCost(a.reputation))} · 1 initiative</button>
-              <button className="ghost" onClick={() => { apply(E.scoutArtist(state, a.id)); setOpen(null); }}>Read their potential · 1 initiative</button>
+                Offer a residency<span className="cost">{money(E.residencyCost(a.reputation))} and 1 initiative</span></button>
+              <button className="ghost" onClick={() => { apply(E.scoutArtist(state, a.id)); setOpen(null); }}>Read their potential<span className="cost">1 initiative</span></button>
               <button className="ghost" disabled={mineCount(a.id) < 2} onClick={() => { apply(E.soloShow(state, a.id)); setOpen(null); }}>
-                Solo show {mineCount(a.id) < 2 ? '(needs 2 of their works)' : '· 1 initiative'}</button>
+                Give them a solo show<span className="cost">{mineCount(a.id) < 2 ? 'You need 2 of their works' : '1 initiative'}</span></button>
             </div>}
             {state.owned.filter(id => state.livingWorks?.[id]?.artistId === a.id).map(id => {
               const w = workOf(state, id);
@@ -81,7 +80,7 @@ function ArtistCard({ a, mine, onOpen }: { a: LivingArtist; mine: number; onOpen
       <span className="v2-avatar">{initials(a.name)}</span>
       <span className="v2-artist-body">
         <b>{a.name}</b>
-        <small>{STYLES[a.style].name} · {a.medium}{mine ? ` · you own ${mine}` : ''}</small>
+        <small>{STYLES[a.style].name} {a.medium.toLowerCase()}{mine ? `, you own ${mine}` : ''}</small>
         <span className="v2-artist-rep"><i><em style={{ width: `${a.reputation}%` }} /></i>
           <em className={a.trend > 0.3 ? 'up' : a.trend < -0.3 ? 'down' : ''}>{a.trend > 0.3 ? '▲' : a.trend < -0.3 ? '▼' : '–'}</em></span>
       </span>

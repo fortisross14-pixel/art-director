@@ -91,7 +91,7 @@ function ThisWeek({ state, apply, setState, nav, flash }: Props) {
       </div>
 
       <div className="v2-endweek">
-        <button className="v2-end" onClick={nav.endWeek}>End week →</button>
+        <button className="v2-end" onClick={nav.endWeek}>End the week</button>
         <button className="ghost v2-sim" onClick={sim}>Skip quiet weeks</button>
       </div>
     </div>
