@@ -7,6 +7,7 @@
    ============================================================ */
 import type { GameState, Room, StyleId } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
+import { workOf } from './attribution';
 
 export type ThesisId = 'movement' | 'artist' | 'period' | 'region' | 'medium' | 'dialogue';
 export const THESES: Record<ThesisId, { name: string; blurb: string }> = {
@@ -83,7 +84,7 @@ const EMPTY: RoomRatings = {
 
 /** Full room ratings, 0-100 each. */
 export function roomRatings(s: GameState, room: Room): RoomRatings {
-  const works = room.items.map(id => ARTIFACT_BY_ID[id]).filter(Boolean);
+  const works = room.items.filter(id => ARTIFACT_BY_ID[id]).map(id => workOf(s, id));
   if (!room.unlocked || !room.theme || works.length === 0) return { ...EMPTY };
 
   const avg = works.reduce((n, a) => n + a.score, 0) / works.length;

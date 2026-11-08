@@ -35,6 +35,14 @@ export function notableReason(prev: GameState, s: GameState): string | null {
         return `An Uncommon lot in your style is up at ${ev.house}: ${a.name}.`;
     }
   }
+  if ((s.crates || []).length > (prev.crates || []).length)
+    return 'A crate has arrived and is waiting to be opened.';
+  if (s.market?.nextHeadline && !prev.market?.nextHeadline) {
+    const a = ARTIFACT_BY_ID[s.market.nextHeadline.artifactId];
+    return `Rumour: ${a.name} is expected at auction in a few weeks.`;
+  }
+  if ((s.studies || []).length < (prev.studies || []).length)
+    return 'An attribution study has reported back.';
   if (expeditionsReady(s).length > expeditionsReady(prev).length)
     return 'An expedition has returned and is ready to play out.';
   if (s.funds < 0 && prev.funds >= 0) return 'Funds have gone negative.';

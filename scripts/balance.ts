@@ -126,6 +126,20 @@ function shop(s: GameState): GameState {
   return s;
 }
 
+/** buy affordable estate lots now and then, and open every crate */
+function crates(s: GameState, stats: { crates: number; bigPulls: number }): GameState {
+  const offer = s.estateOffer;
+  if (offer && s.funds > offer.price + s.lastExpenses * RESERVE_WEEKS * 2 && Math.random() < 0.5)
+    s = E.buyEstate(s).state;
+  for (const c of [...(s.crates || [])]) {
+    for (let i = 0; i < c.cards.length; i++) s = E.revealCard(s, c.id, i).state;
+    for (const card of c.cards) if (ARTIFACT_BY_ID[card.artifactId].score >= 50) stats.bigPulls++;
+    s = E.finishCrate(s, c.id).state;
+    stats.crates++;
+  }
+  return s;
+}
+
 function manage(s: GameState): GameState {
   // fair ticket price for the current crowd
   s = E.setTicket(s, Math.round(E.fairTicket(E.activeMuseum(s))));
@@ -154,10 +168,12 @@ function run(verbose: boolean): RunSummary {
   const reached: Record<string, number | null> = { house2: null, house3: null, firstRare: null, firstEpic: null };
   const lines: string[] = [];
   let rarePlusLots = 0;
+  const crateStats = { crates: 0, bigPulls: 0 };
   for (let w = 1; w <= WEEKS; w++) {
     for (const ev of s.events) for (const id of ev.lotIds)
       if (ARTIFACT_BY_ID[id].score >= 20) rarePlusLots++;
     s = shop(s);
+    s = crates(s, crateStats);
     s = hangEverything(s);
     s = rotate(s);
     s = maybeMove(s);
@@ -185,7 +201,8 @@ function run(verbose: boolean): RunSummary {
     reached, lines,
     final: `fame ${E.totalFame(s)}, funds §${Math.round(s.funds).toLocaleString()}, `
       + `${s.owned.length} works, best ${best.name} (${rarityForScore(best.score).name} ${best.score}), `
-      + `rare+ lots seen ${rarePlusLots}, history ${s.history.length} entries`,
+      + `rare+ lots seen ${rarePlusLots}, crates ${crateStats.crates} (epic+ pulls ${crateStats.bigPulls}), `
+      + `doubtful works ${Object.keys(s.attributions || {}).length}, sets ${(s.completedSets || []).length}`,
   };
 }
 

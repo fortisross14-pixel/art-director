@@ -18,6 +18,7 @@
 import type { AuctionState, GameState } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { rand, money, pick } from './util';
+import { workOf } from './attribution';
 
 const COLLECTORS = [
   'The Thorncrest Collection', 'A private collector', 'A telephone bidder',
@@ -37,8 +38,8 @@ export const AUCTION_CFG = {
  *  not rigid — a 99 costs more than a 56, modestly, since they
  *  share a band; randomness means bargains and overpriced lots
  *  both occur. `value` is the data baseline; we jitter it. */
-export function lotEstimate(artifactId: string): number {
-  const art = ARTIFACT_BY_ID[artifactId];
+export function lotEstimate(artifactId: string, state?: GameState): number {
+  const art = state ? workOf(state, artifactId) : ARTIFACT_BY_ID[artifactId];
   // baseline value, nudged by score within its band, then jittered
   const scoreNudge = 1 + (art.score % 50) / 260;   // small intra-band lift
   return Math.round(art.value * scoreNudge * rand(0.85, 1.15));
@@ -46,7 +47,7 @@ export function lotEstimate(artifactId: string): number {
 
 export function startLot(state: GameState, artifactId: string): AuctionState {
   const art = ARTIFACT_BY_ID[artifactId];
-  const estimate = lotEstimate(artifactId);
+  const estimate = lotEstimate(artifactId, state);
   const starsHere = state.expertise[art.style] || 0;
   const expertiseCut = 1 - Math.min(0.35, starsHere * 0.06);
   // a cousin who collects this style bids in person, up to what they

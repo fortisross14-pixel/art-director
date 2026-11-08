@@ -570,7 +570,7 @@ verify.
 - A Rare+ lot appears at least every 8 weeks.
 - History covers the whole career.
 
-### M2 (v0.9): The thrill
+### M2 (v0.9): The thrill ✅ shipped, see VERSION_9_NOTES.md (images moved to M7)
 **Scope:** R8–R15 and R33–R38.
 - Crates and the reveal sequence.
 - Dust and the pity meter.

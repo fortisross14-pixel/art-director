@@ -25,6 +25,13 @@ import type { PurchaseOutcome as BMPurchaseOutcome } from './blackmarket';
 import { ARTIFACTS, ARTIFACT_BY_ID } from '../data/artifacts';
 import { randInt, rand, money, uid, gaussian } from './util';
 import { roomRatings } from './ratings';
+import { workOf, maybeDoubt, attributionLine, studyCost, STUDY_WEEKS } from './attribution';
+import {
+  rollCardId, bandOf, BAND_NAMES, DUST_VALUE, REROLL_COST, UPGRADE_COST, PITY_CRATES,
+  CRATE_TIER_NAME, expectedCardValue, ESTATE_FAMILIES, BEQUEST_DONORS,
+} from './crates';
+import { ARTIST_SETS, displayedCompleteSets, setProgress } from './sets';
+import type { Crate, CrateSource, CrateTier } from '../data/types';
 export { roomRatings } from './ratings';
 
 type Result = { state: GameState; error?: string };
@@ -196,6 +203,14 @@ export function newGame(): GameState {
     museumRelations: {},
     weeklyReport: null,
     market: { weeksSinceRarePlus: 0, lastHeadlineWeek: FIRST_HEADLINE_WEEK - HEADLINE_EVERY },
+    crates: [],
+    dust: 0,
+    cratePity: 0,
+    estateOffer: null,
+    attributions: {},
+    studies: [],
+    completedSets: [],
+    signatureId: null,
     phase: 'choose-specialty',
   };
 }
@@ -227,6 +242,10 @@ function fork(s: GameState): GameState {
     owned: [...s.owned],
     rivals: s.rivals.map(r => ({ ...r, collection: [...(r.collection || [])] })),
     market: s.market ? { ...s.market } : undefined,
+    crates: (s.crates || []).map(c => ({ ...c, cards: c.cards.map(x => ({ ...x })) })),
+    attributions: { ...(s.attributions || {}) },
+    studies: (s.studies || []).map(x => ({ ...x })),
+    completedSets: [...(s.completedSets || [])],
     log: [...s.log],
     staff: s.staff.map(m => ({ ...m })),
     candidates: s.candidates.map(m => ({ ...m })),
@@ -610,6 +629,8 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
   // must actually offer that rarity band (weight > 0).
   const styleSet = new Set(s.specialties);
   const cousins = rivalOwnedIds(s);
+  for (const c of s.crates || []) for (const card of c.cards) cousins.add(card.artifactId);
+  if (s.market?.nextHeadline) cousins.add(s.market.nextHeadline.artifactId);
   const pool = ARTIFACTS.filter(a => {
     if (s.owned.includes(a.id) || cousins.has(a.id)) return false;
     const band = bandIndexForScore(a.score);
@@ -637,6 +658,9 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
     avail.splice(avail.indexOf(chosen), 1);
   }
   if (lots.length === 0) return null;
+  // some lots surface as "Circle of" or "Workshop of" — cheaper, and
+  // occasionally the real thing
+  for (const id of lots) maybeDoubt(s, id, 0.15);
 
   return {
     id: uid('ev'),
@@ -658,6 +682,8 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
        PITY_WEEKS, the next sale is guaranteed to carry one */
 export const HEADLINE_EVERY = 13;
 export const PITY_WEEKS = 8;
+/** how many weeks ahead a headline lot is rumoured */
+export const RUMOUR_WEEKS = 4;
 /** the first headline lot arrives early, to show what's possible */
 const FIRST_HEADLINE_WEEK = 6;
 
@@ -715,15 +741,26 @@ export function rollEvents(s: GameState): GameEvent[] {
     ...events.flatMap(e => e.lotIds)]);
   const houses = [...joinedHouses(s)].sort((a, b) => b.fameToUnlock - a.fameToUnlock);
 
-  // the season's headline lot
-  if (houses.length && s.week - market.lastHeadlineWeek >= HEADLINE_EVERY) {
+  // the season's headline lot is rumoured RUMOUR_WEEKS ahead, then
+  // arrives at the best house you belong to
+  const due = market.lastHeadlineWeek + HEADLINE_EVERY;
+  if (houses.length && !market.nextHeadline && s.week >= due - RUMOUR_WEEKS) {
     const top = houses[0];
     const id = pickLotOfBand(s, Math.max(2, Math.min(4, houseTopBand(top))), exclude);
     if (id) {
-      addLot(events, top, id).headlineId = id;
-      exclude.add(id);
-      market.lastHeadlineWeek = s.week;
+      maybeDoubt(s, id, 0.15);
+      market.nextHeadline = { artifactId: id, houseId: top.id, week: Math.max(s.week + 1, due) };
     }
+  }
+  const planned = market.nextHeadline;
+  if (planned && s.week >= planned.week) {
+    const house = AUCTION_HOUSES.find(h => h.id === planned.houseId) || houses[0];
+    if (house && !s.owned.includes(planned.artifactId)) {
+      addLot(events, house, planned.artifactId).headlineId = planned.artifactId;
+      exclude.add(planned.artifactId);
+    }
+    market.lastHeadlineWeek = s.week;
+    market.nextHeadline = null;
   }
 
   // the pity timer
@@ -787,7 +824,7 @@ export function finishLot(s: GameState): GameState {
   next.auction = null;
 
   if (a.won) {
-    const art = ARTIFACT_BY_ID[a.artifactId];
+    const art = workOf(next, a.artifactId);
     next.funds -= a.currentBid;
     next.owned.push(art.id);
     next.activeEvent.acquired!.push(art.id);
@@ -852,7 +889,7 @@ export function placeArtifact(s: GameState, roomId: number): Result {
   if (roomIsFull(filled) && !filled.completedOnce) {
     filled.completedOnce = true;
     const quality = filled.items.reduce(
-      (acc, id) => acc + ARTIFACT_BY_ID[id].score, 0);
+      (acc, id) => acc + workOf(next, id).score, 0);
     const bonus = 20 + Math.round(quality * 0.18);
     addReputation(activeMuseum(next), 'prestige', bonus);
     next = logged(next, { kind: 'good',
@@ -877,8 +914,8 @@ export function removeArtifact(s: GameState, artId: string): Result {
 }
 
 /** What a quick private sale pays — a flat 70% of catalogue value. */
-export function quickSellPrice(artId: string): number {
-  return Math.round(ARTIFACT_BY_ID[artId].value * 0.7);
+export function quickSellPrice(artId: string, s?: GameState): number {
+  return Math.round((s ? workOf(s, artId) : ARTIFACT_BY_ID[artId]).value * 0.7);
 }
 
 /** Remove an owned work from the collection entirely — taken off
@@ -887,7 +924,7 @@ function deaccession(s: GameState, artId: string): GameState {
   const next = fork(s);
   next.owned = next.owned.filter(id => id !== artId);
   // donors dislike seeing significant works sold off
-  const score = ARTIFACT_BY_ID[artId]?.score || 0;
+  const score = ARTIFACT_BY_ID[artId] ? workOf(s, artId).score : 0;
   if (score >= 20) addReputation(activeMuseum(next), 'patronage', -Math.min(25, Math.round(score * 0.08)));
   for (const m of next.museums) {
     m.rooms = m.rooms.map(r =>
@@ -902,7 +939,7 @@ export function quickSellArtifact(s: GameState, artId: string): Result {
   if (!s.owned.includes(artId))
     return { state: s, error: 'You do not own that work.' };
   const art = ARTIFACT_BY_ID[artId];
-  const price = quickSellPrice(artId);
+  const price = quickSellPrice(artId, s);
   let next = deaccession(s, artId);
   next.funds += price;
   next = logged(next, { kind: 'good',
@@ -916,7 +953,7 @@ export function quickSellArtifact(s: GameState, artId: string): Result {
 export function auctionSellArtifact(s: GameState, artId: string): Result {
   if (!s.owned.includes(artId))
     return { state: s, error: 'You do not own that work.' };
-  const art = ARTIFACT_BY_ID[artId];
+  const art = workOf(s, artId);
   // gaussian() is ~[-1,1] centred 0 -> map to 0.6..1.4 centred 1.0
   const factor = 1 + gaussian() * 0.4;
   const price = Math.round(art.value * Math.max(0.6, Math.min(1.4, factor)));
@@ -1265,47 +1302,304 @@ export function rollArtifactOfBand(
   return pool[randInt(0, pool.length - 1)].id;
 }
 
-/** Resolve a played-out expedition. The board mini-game produces
- *  a result: either whole artifact ids won, or a shard count.
- *  `objectIds` — whole works won (Common/Uncommon tiers).
- *  `shardsWon` — shards banked (Rare/Epic tiers). */
+/** which crate an expedition of each tier sends home */
+export const EXPEDITION_CRATE: Record<ExpeditionTier, CrateTier> = {
+  common: 'field', uncommon: 'major', rare: 'major', epic: 'legendary',
+};
+
+/** how many cards a dig board result is worth */
+export function expeditionCardCount(result: { finds: number; shards: number; ejected: boolean }): number {
+  if (result.ejected) return 0;
+  return Math.max(0, Math.min(6, result.finds + Math.floor(result.shards / 4)));
+}
+
+/** Resolve a played-out expedition. The dig board decides how many
+ *  cards come home; the expedition tier decides the crate's odds.
+ *  The crate then waits to be opened. */
 export function resolveExpedition(
   s: GameState, expeditionId: string,
-  result: { objectIds?: string[]; shardsWon?: number },
+  result: { finds: number; shards: number; ejected: boolean },
 ): Result {
   const exp = s.expeditions.find(e => e.id === expeditionId);
   if (!exp) return { state: s, error: 'No such expedition.' };
   if (exp.resolved) return { state: s, error: 'Already resolved.' };
   const def = EXPEDITION_TIERS.find(t => t.id === exp.tier)!;
   let next = fork(s);
-
-  let summary: string;
-  if (def.yieldsObjects) {
-    const ids = (result.objectIds || [])
-      .filter(id => ARTIFACT_BY_ID[id] && !next.owned.includes(id));
-    for (const id of ids) {
-      next.owned.push(id);
-      const art = ARTIFACT_BY_ID[id];
-      addReputation(activeMuseum(next), 'prestige', Math.max(1, Math.round(art.score * 0.3)));
-      next.expertise[art.style] = Math.min(5,
-        +(((next.expertise[art.style] || 0) + 0.2 + art.score / 500)).toFixed(2));
-    }
-    summary = ids.length > 0
-      ? `The ${def.name} returned with ${ids.length} work(s).`
-      : `The ${def.name} returned empty-handed.`;
-  } else {
-    const won = Math.max(0, Math.round(result.shardsWon || 0));
-    const tier = exp.tier as 'rare' | 'epic';
-    const key = shardKey(tier, exp.style);
-    next.shards = { ...next.shards, [key]: (next.shards[key] || 0) + won };
-    summary = won > 0
-      ? `The ${def.name} banked ${won} ${tier} ${STYLES[exp.style].name} shard(s).`
-      : `The ${def.name} returned with no shards.`;
-  }
+  const count = expeditionCardCount(result);
+  const tier = EXPEDITION_CRATE[exp.tier];
   next.expeditions = next.expeditions.map(e =>
     e.id === expeditionId ? { ...e, resolved: true } : e);
-  next = logged(next, { kind: 'good', text: summary });
+  if (count === 0) {
+    next = logged(next, { kind: 'bad', text: `The ${def.name} came home empty-handed.` });
+    return { state: next };
+  }
+  createCrate(next, 'dig', tier, count, exp.style,
+    `${CRATE_TIER_NAME[tier]} dig crate — ${STYLES[exp.style].name}`);
+  next = logged(next, { kind: 'good',
+    text: `The ${def.name} sent home a ${CRATE_TIER_NAME[tier].toLowerCase()} crate of ${count} find(s). Open it from the Calendar.` });
   return { state: next };
+}
+
+/* --- crates ------------------------------------------------- */
+/** add a log line to a state being built (mutates) */
+function pushLog(s: GameState, kind: LogEntry['kind'], text: string): void {
+  s.log = [{ kind, text }, ...s.log].slice(0, 60);
+}
+
+/** every id that can't be drawn again: owned, a cousin's, already in a crate */
+function unavailableIds(s: GameState): Set<string> {
+  return new Set([
+    ...s.owned, ...rivalOwnedIds(s),
+    ...(s.crates || []).flatMap(c => c.cards.map(x => x.artifactId)),
+    ...s.events.flatMap(e => e.lotIds),
+  ]);
+}
+
+/** Roll a crate and add it to `s.crates` (mutates a forked state).
+ *  Applies the pity rule and sorts cards so the best flips last. */
+export function createCrate(
+  s: GameState, source: CrateSource, tier: CrateTier, count: number,
+  style: StyleId | null, title: string, minBand = 0,
+): Crate {
+  const exclude = unavailableIds(s);
+  const ids: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const id = rollCardId(tier, style, s.specialties, exclude, minBand);
+    if (!id) break;
+    ids.push(id); exclude.add(id);
+    maybeDoubt(s, id, 0.2);
+  }
+  // pity: a Rare-or-better card at least every PITY_CRATES crates
+  const shows = (id: string) => bandOf(workOf(s, id).score);
+  if (ids.length && !ids.some(id => shows(id) >= 2)) {
+    if ((s.cratePity || 0) + 1 >= PITY_CRATES) {
+      const id = rollCardId(tier, style, s.specialties, exclude, 2);
+      if (id) {
+        ids[ids.length - 1] = id;
+        if (s.attributions?.[id]) delete s.attributions[id];
+      }
+    }
+  }
+  s.cratePity = ids.some(id => shows(id) >= 2) ? 0 : (s.cratePity || 0) + 1;
+  ids.sort((x, y) => workOf(s, x).score - workOf(s, y).score);
+  const crate: Crate = {
+    id: uid('crate'), source, tier, title, style,
+    cards: ids.map(artifactId => ({ artifactId, revealed: false })),
+    week: s.week,
+  };
+  s.crates = [...(s.crates || []), crate];
+  return crate;
+}
+
+function withCrate(s: GameState, crateId: string, fn: (c: Crate, n: GameState) => string | void): Result {
+  const c = (s.crates || []).find(x => x.id === crateId);
+  if (!c) return { state: s, error: 'That crate is gone.' };
+  const next = fork(s);
+  next.crates = (next.crates || []).map(x => x.id === crateId
+    ? { ...x, cards: x.cards.map(card => ({ ...card })) } : x);
+  next.attributions = { ...(next.attributions || {}) };
+  const err = fn(next.crates.find(x => x.id === crateId)!, next);
+  return err ? { state: s, error: err } : { state: next };
+}
+
+/** flip one card face up */
+export function revealCard(s: GameState, crateId: string, index: number): Result {
+  return withCrate(s, crateId, c => {
+    if (!c.cards[index]) return 'No such card.';
+    c.cards[index].revealed = true;
+  });
+}
+
+/** keep or salvage a revealed card */
+export function decideCard(s: GameState, crateId: string, index: number, decision: 'keep' | 'salvage'): Result {
+  return withCrate(s, crateId, c => {
+    const card = c.cards[index];
+    if (!card?.revealed) return 'Reveal the card first.';
+    card.decision = decision;
+  });
+}
+
+/** swap a revealed card for a fresh draw from the same crate tier */
+export function rerollCard(s: GameState, crateId: string, index: number): Result {
+  if ((s.dust || 0) < REROLL_COST) return { state: s, error: `A reroll costs ${REROLL_COST} dust.` };
+  return withCrate(s, crateId, (c, n) => {
+    const card = c.cards[index];
+    if (!card?.revealed) return 'Reveal the card first.';
+    const id = rollCardId(c.tier, c.style, n.specialties, unavailableIds(n));
+    if (!id) return 'Nothing left to draw.';
+    n.dust = (n.dust || 0) - REROLL_COST;
+    maybeDoubt(n, id, 0.2);
+    c.cards[index] = { artifactId: id, revealed: true };
+  });
+}
+
+/** raise an unopened crate one tier, redrawing every card */
+export function upgradeCrate(s: GameState, crateId: string): Result {
+  const c0 = (s.crates || []).find(x => x.id === crateId);
+  if (!c0) return { state: s, error: 'That crate is gone.' };
+  if (c0.tier === 'legendary') return { state: s, error: 'Already a legendary crate.' };
+  const cost = UPGRADE_COST[c0.tier];
+  if ((s.dust || 0) < cost) return { state: s, error: `Upgrading costs ${cost} dust.` };
+  if (c0.cards.some(x => x.revealed)) return { state: s, error: 'Upgrade before you flip any card.' };
+  const next = fork(s);
+  next.attributions = { ...(next.attributions || {}) };
+  next.dust = (next.dust || 0) - cost;
+  next.crates = (next.crates || []).filter(x => x.id !== crateId);
+  const tier: CrateTier = c0.tier === 'field' ? 'major' : 'legendary';
+  const crate = createCrate(next, c0.source, tier, c0.cards.length, c0.style,
+    c0.title.replace(CRATE_TIER_NAME[c0.tier], CRATE_TIER_NAME[tier]));
+  crate.id = c0.id;
+  return { state: next };
+}
+
+/** Close a fully revealed crate: kept cards join the collection,
+ *  salvaged ones turn into dust. Undecided cards are kept. */
+export function finishCrate(s: GameState, crateId: string): Result {
+  const c = (s.crates || []).find(x => x.id === crateId);
+  if (!c) return { state: s, error: 'That crate is gone.' };
+  if (c.cards.some(x => !x.revealed)) return { state: s, error: 'Flip every card first.' };
+  let next = fork(s);
+  next.crates = (next.crates || []).filter(x => x.id !== crateId);
+  let dust = 0;
+  const kept: string[] = [];
+  for (const card of c.cards) {
+    const art = workOf(next, card.artifactId);
+    const band = bandOf(art.score);
+    if (card.decision === 'salvage') { dust += DUST_VALUE[band]; continue; }
+    next.owned.push(art.id);
+    kept.push(art.id);
+    addReputation(activeMuseum(next), 'prestige', Math.max(1, Math.round(art.score * 0.25)));
+    next.expertise[art.style] = Math.min(5,
+      +(((next.expertise[art.style] || 0) + 0.15 + art.score / 500)).toFixed(2));
+    if (band >= 4)
+      next = logged(next, { kind: 'good',
+        text: `FRONT PAGE: ${next.galleryName} unveils ${art.name} — a ${BAND_NAMES[band]}!` });
+  }
+  next.dust = (next.dust || 0) + dust;
+  next = logged(next, { kind: 'good',
+    text: `Opened ${c.title}: kept ${kept.length}${dust ? `, salvaged ${dust} dust` : ''}.` });
+  return { state: next };
+}
+
+/* --- estate lots & bequests --------------------------------- */
+/** an estate sale this week, sight unseen, at the best house you belong to */
+function rollEstateOffer(s: GameState): void {
+  s.estateOffer = null;
+  if (Math.random() > 0.3) return;
+  const houses = [...joinedHouses(s)].sort((a, b) => b.fameToUnlock - a.fameToUnlock);
+  const h = houses[0];
+  if (!h) return;
+  const tier: CrateTier = h.id === 'house1' ? 'field'
+    : h.id === 'house2' ? (Math.random() < 0.4 ? 'major' : 'field')
+    : (Math.random() < 0.3 ? 'legendary' : 'major');
+  const cardCount = randInt(3, 5);
+  const price = Math.round(expectedCardValue(tier) * cardCount * rand(0.6, 0.8) / 100) * 100;
+  s.estateOffer = {
+    id: uid('estate'), houseId: h.id, house: h.name,
+    family: ESTATE_FAMILIES[randInt(0, ESTATE_FAMILIES.length - 1)],
+    tier, cardCount, price,
+  };
+}
+
+/** buy this week's estate lot, contents unseen */
+export function buyEstate(s: GameState): Result {
+  const offer = s.estateOffer;
+  if (!offer) return { state: s, error: 'No estate lot this week.' };
+  if (s.funds < offer.price) return { state: s, error: `The estate lot costs ${money(offer.price)}.` };
+  let next = fork(s);
+  next.attributions = { ...(next.attributions || {}) };
+  next.funds -= offer.price;
+  next.estateOffer = null;
+  createCrate(next, 'estate', offer.tier, offer.cardCount, null, `The ${offer.family} estate`);
+  next = logged(next, { kind: 'good',
+    text: `Bought the ${offer.family} estate lot sight unseen for ${money(offer.price)}.` });
+  return { state: next };
+}
+
+/** donors who love the museum sometimes leave it something */
+function rollBequest(s: GameState): void {
+  const patronage = totalReputation(s).patronage;
+  if (Math.random() > Math.min(0.05, patronage / 1500)) return;
+  const donor = BEQUEST_DONORS[randInt(0, BEQUEST_DONORS.length - 1)];
+  createCrate(s, 'bequest', 'major', randInt(1, 3), null, `The bequest of ${donor}`, 2);
+  pushLog(s, 'good', `${donor} has left the museum a bequest. Open it from the Calendar.`);
+}
+
+/* --- attribution studies ------------------------------------ */
+export function startStudy(s: GameState, artId: string): Result {
+  if (!s.owned.includes(artId)) return { state: s, error: 'You do not own that work.' };
+  const att = s.attributions?.[artId];
+  if (!att || att.label === 'confirmed' || att.settled)
+    return { state: s, error: 'There is nothing left to study about this attribution.' };
+  const researchers = staffOfRole(s, 'researcher').length;
+  if (!researchers) return { state: s, error: 'Hire a researcher to run an attribution study.' };
+  const running = s.studies || [];
+  if (running.some(x => x.artifactId === artId)) return { state: s, error: 'That work is already being studied.' };
+  if (running.length >= researchers) return { state: s, error: 'All your researchers are busy.' };
+  const cost = studyCost(s, artId);
+  if (s.funds < cost) return { state: s, error: `The study costs ${money(cost)}.` };
+  let next = fork(s);
+  next.funds -= cost;
+  const weeks = Math.max(2, STUDY_WEEKS - (specialtySkill(s, 'swift') >= 2 ? 1 : 0));
+  next.studies = [...running, { artifactId: artId, weeksLeft: weeks }];
+  next = logged(next, { kind: 'note',
+    text: `Began an attribution study of ${ARTIFACT_BY_ID[artId].name} (${weeks} weeks).` });
+  return { state: next };
+}
+
+function progressStudies(s: GameState): void {
+  const done: string[] = [];
+  s.studies = (s.studies || []).map(x => ({ ...x, weeksLeft: x.weeksLeft - 1 }))
+    .filter(x => { if (x.weeksLeft <= 0) { done.push(x.artifactId); return false; } return true; });
+  for (const id of done) {
+    const att = s.attributions?.[id];
+    if (!att) continue;
+    const art = ARTIFACT_BY_ID[id];
+    const before = attributionLine(s, id);
+    if (att.sleeper) {
+      s.attributions![id] = { ...att, label: 'confirmed', settled: true };
+      const m = activeMuseum(s);
+      addReputation(m, 'prestige', Math.round(art.score * 0.4));
+      addReputation(m, 'popularity', Math.round(art.score * 0.3));
+      pushLog(s, 'good', `DISCOVERY: "${before}" is by ${art.author} after all! ${art.name} is now a ${BAND_NAMES[bandOf(art.score)]}.`);
+    } else {
+      s.attributions![id] = { ...att, settled: true };
+      addReputation(activeMuseum(s), 'prestige', 2);
+      pushLog(s, 'note', `The study of ${art.name} confirms it: ${before.toLowerCase()}. A fine piece, if not a masterpiece.`);
+    }
+  }
+}
+
+/* --- signature work & sets ---------------------------------- */
+/** choose the work on the museum's poster; it must be on display */
+export function setSignature(s: GameState, artId: string): Result {
+  const shown = activeMuseum(s).rooms.some(r => r.items.includes(artId));
+  if (!shown) return { state: s, error: 'Hang the work before making it your signature.' };
+  let next = fork(s);
+  next.signatureId = artId;
+  next = logged(next, { kind: 'good',
+    text: `${ARTIFACT_BY_ID[artId].name} is now the signature work on every poster.` });
+  return { state: next };
+}
+
+/** the signature work, if it is still on a wall */
+export function signatureOnDisplay(s: GameState, m?: Museum): string | null {
+  const id = s.signatureId;
+  if (!id) return null;
+  const mus = m || activeMuseum(s);
+  return mus.rooms.some(r => r.items.includes(id)) ? id : null;
+}
+
+function checkSets(s: GameState): void {
+  s.completedSets = s.completedSets || [];
+  for (const set of ARTIST_SETS) {
+    if (s.completedSets.includes(set.id)) continue;
+    const p = setProgress(s, set);
+    if (p.owned < p.total) continue;
+    s.completedSets = [...s.completedSets, set.id];
+    addReputation(activeMuseum(s), 'prestige', 20 + set.workIds.length * 5);
+    pushLog(s, 'good', `COLLECTION COMPLETE: ${set.name} — all ${p.total} works are yours.`);
+  }
 }
 
 /** Summon a Rare or Epic work, spending banked shards of that
@@ -1554,7 +1848,7 @@ export function museumQuality(s: GameState, museumId?: string): number {
   const mus = museumId ? museumById(s, museumId) : activeMuseum(s);
   let q = 0;
   for (const r of mus.rooms)
-    for (const id of r.items) q += ARTIFACT_BY_ID[id].score;
+    for (const id of r.items) q += workOf(s, id).score;
   return q;
 }
 
@@ -1587,8 +1881,8 @@ const TYPE_DRAW: Record<string, number> = {
 /** per-artwork DAILY visitor pull, before diminishing returns.
  *  A score-0 Common pulls a handful a day; an Uncommon noticeably
  *  more; a Legend draws a real crowd. Type nudges it a little. */
-function artifactDailyDraw(id: string): number {
-  const a = ARTIFACT_BY_ID[id];
+function artifactDailyDraw(s: GameState, id: string): number {
+  const a = workOf(s, id);
   const typeMult = TYPE_DRAW[a.type] ?? 1;
   // base 4/day + score scaling; Common ~4-7, Uncommon ~9-13,
   // Rare ~15-28, Epic/Legend climbing well past that.
@@ -1601,10 +1895,10 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
   const mus = museum || activeMuseum(s);
   const draws: number[] = [];
   for (const r of mus.rooms)
-    for (const id of r.items) draws.push(artifactDailyDraw(id));
+    for (const id of r.items) draws.push(artifactDailyDraw(s, id));
   // works on loan that are ON DISPLAY draw visitors too
   for (const l of mus.loans)
-    if (l.roomId !== null) draws.push(artifactDailyDraw(l.artifactId));
+    if (l.roomId !== null) draws.push(artifactDailyDraw(s, l.artifactId));
   if (draws.length === 0) return 0;
 
   // best pieces count fullest; each next piece is worth a little
@@ -1616,6 +1910,9 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
     const dimin = Math.max(0.5, Math.pow(0.85, i));
     total += draws[i] * dimin;
   }
+  // the poster work pulls its own crowd
+  const sig = signatureOnDisplay(s, mus);
+  if (sig) total += artifactDailyDraw(s, sig) * 0.35;
   // fame and completed rooms lift the daily figure too
   total += mus.fame * 0.5;
   total += mus.rooms.filter(roomIsFull).length * 7;
@@ -1762,8 +2059,11 @@ export function reputationTargets(s: GameState, m: Museum): Reputation {
     .reduce((n, r) => n + (r?.completed?.length || 0), 0);
   const completed = m.rooms.filter(roomIsFull).length;
   const prestige = museumQuality(s, m.id) * 0.45 + avgQuality * 0.3
-    + research * 3 + completed * 6 + museumCohesionBonus(m) * 0.5;
+    + research * 3 + completed * 6 + museumCohesionBonus(m) * 0.5
+    + displayedCompleteSets(s).length * 15;
+  const sig = signatureOnDisplay(s, m);
   const popularity = dailyVisitors(s, m) * 0.4
+    + (sig ? workOf(s, sig).score * 0.4 : 0)
     + specialtySkill(s, 'publicist') * 12 + (m.adWeeksLeft > 0 ? 8 : 0);
   const shownLoans = m.loans.filter(l => l.roomId !== null).length;
   const patronage = (s.memberships || 0) * 0.12 / Math.max(1, openMuseums(s).length)
@@ -1789,7 +2089,8 @@ function accrueReputation(s: GameState): void {
    follows the strength of what they own — so a cousin who wins
    the Legend you wanted really does climb past you. */
 function rivalWeek(s: GameState): void {
-  const taken = new Set([...s.owned, ...rivalOwnedIds(s)]);
+  const taken = new Set([...s.owned, ...rivalOwnedIds(s),
+    ...(s.market?.nextHeadline ? [s.market.nextHeadline.artifactId] : [])]);
   s.rivals = s.rivals.map((r, i) => {
     const t = RIVAL_TEMPER[i % RIVAL_TEMPER.length];
     const income = t.income * Math.max(0.3, 1 - t.incomeDecay * s.week) + r.fame * 4;
@@ -1908,6 +2209,10 @@ export function advanceWeek(s: GameState): GameState {
     next.candidates = makeCandidates();
   }
 
+  // attribution studies, completed sets, gifts from donors
+  progressStudies(next);
+  checkSets(next);
+  rollBequest(next);
   // reputation drifts toward what each museum currently is
   accrueReputation(next);
   // the cousins earn, shop and grow from what they own
@@ -1935,7 +2240,7 @@ export function advanceWeek(s: GameState): GameState {
         (a, m) => a + m.rooms.filter(r => r.unlocked).length, 0),
       works: openMuseums(next).reduce((a, m) => a + placedCount(next, m.id), 0),
       collectionValue: next.owned.reduce(
-        (a, id) => a + (ARTIFACT_BY_ID[id]?.value || 0), 0),
+        (a, id) => a + (ARTIFACT_BY_ID[id] ? workOf(next, id).value : 0), 0),
     },
   ];
   // the whole career is kept: the last year week by week, and
@@ -1961,6 +2266,7 @@ export function advanceWeek(s: GameState): GameState {
   }
 
   next.events = rollEvents(next);
+  rollEstateOffer(next);
   // a gala appears some weeks — a chance to court collectors for loans
   next.galaPending = Math.random() < 0.4;
   if (next.galaPending)
@@ -1985,7 +2291,7 @@ export function finalScore(s: GameState): FinalScore {
   const quality = openMuseums(s).reduce(
     (a, m) => a + museumQuality(s, m.id), 0);
   const collValue = s.owned.reduce(
-    (acc, id) => acc + ARTIFACT_BY_ID[id].value, 0);
+    (acc, id) => acc + workOf(s, id).value, 0);
   const completeRooms = openMuseums(s).reduce(
     (a, m) => a + m.rooms.filter(roomIsFull).length, 0);
   const score = Math.round(

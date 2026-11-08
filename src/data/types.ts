@@ -329,6 +329,14 @@ export interface GameState {
   museumRelations?: Record<string, number>;
   weeklyReport?: WeeklyReport | null;
   market?: MarketPacing;
+  crates?: Crate[];               // unopened or half-opened crates
+  dust?: number;                  // salvage currency from unwanted pulls
+  cratePity?: number;             // crates opened since the last Rare+ card
+  estateOffer?: EstateOffer | null;
+  attributions?: Record<string, Attribution>;  // per-career doubtful works
+  studies?: AttributionStudy[];
+  completedSets?: string[];       // artist sets completed this career
+  signatureId?: string | null;    // the museum's poster work
   phase: Phase;
 }
 
@@ -336,6 +344,57 @@ export interface GameState {
 export interface MarketPacing {
   weeksSinceRarePlus: number;   // weeks since a Rare-or-better lot was offered
   lastHeadlineWeek: number;     // week the last headline lot appeared
+  /** the next headline lot, announced in advance as a rumour */
+  nextHeadline?: { artifactId: string; houseId: string; week: number } | null;
+}
+
+/* --- crates (the pack-opening moment) ---------------------- */
+export type CrateTier = 'field' | 'major' | 'legendary';
+export type CrateSource = 'dig' | 'estate' | 'bequest';
+
+export interface CrateCard {
+  artifactId: string;
+  revealed: boolean;
+  /** what the player decided once revealed */
+  decision?: 'keep' | 'salvage';
+}
+
+/** A bundle of works whose contents are unknown until opened. Cards
+ *  are rolled when the crate is created, so reloading never rerolls. */
+export interface Crate {
+  id: string;
+  source: CrateSource;
+  tier: CrateTier;
+  title: string;          // "Field dig crate — Egyptian", "The Albescu estate"
+  style: StyleId | null;  // the style it leans toward, if any
+  cards: CrateCard[];
+  week: number;           // week it arrived
+}
+
+/** an estate lot on offer this week: bought sight unseen */
+export interface EstateOffer {
+  id: string;
+  houseId: string;
+  house: string;
+  family: string;
+  tier: CrateTier;
+  cardCount: number;
+  price: number;
+}
+
+/* --- attribution (sleepers) -------------------------------- */
+export type AttributionLabel = 'confirmed' | 'attributed' | 'workshop' | 'circle';
+export interface Attribution {
+  label: AttributionLabel;
+  /** hidden: is this really the master's hand? */
+  sleeper: boolean;
+  /** true once a study has settled the question */
+  settled: boolean;
+}
+/** a running attribution study on an owned work */
+export interface AttributionStudy {
+  artifactId: string;
+  weeksLeft: number;
 }
 
 /* --- career history (powers trends and "then vs now") ------ */

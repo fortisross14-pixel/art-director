@@ -19,11 +19,11 @@ import type {
 } from '../data/types';
 import {
   STYLES, STYLE_IDS, BUILDINGS, AD_CAMPAIGN, START,
-  AUCTION_HOUSES, EXPEDITION_TIERS, SUMMON_COST,
+  AUCTION_HOUSES, EXPEDITION_TIERS,
   DISTRICTS, districtOfBuilding, typeIcon, rarityForScore,
   RARITY_BANDS,
 } from '../data/constants';
-import { ARTIFACTS, ARTIFACT_BY_ID } from '../data/artifacts';
+import { ARTIFACT_BY_ID } from '../data/artifacts';
 import * as E from '../engine/game';
 import * as Auc from '../engine/auction';
 import * as Dig from '../engine/digboard';
@@ -32,12 +32,14 @@ import * as BM from '../engine/blackmarket';
 import * as Saves from '../engine/saves';
 import * as D from '../engine/director';
 import * as Sim from '../engine/sim';
+import * as Att from '../engine/attribution';
+import { CrateScreen, CratesPanel, DustPanel, CatalogueTab } from './crates';
 import { money } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
 
 type Tab =
   | 'floor' | 'collection' | 'opportunities' | 'exploration'
-  | 'staff' | 'research' | 'finance' | 'city' | 'museums';
+  | 'staff' | 'research' | 'finance' | 'city' | 'museums' | 'catalogue';
 
 /* ============================================================
    ROOT — owns the active slot, routes home vs in-game
@@ -141,6 +143,8 @@ function Game({
   const [galaOpen, setGalaOpen] = useState(false);
   // whether the black-market screen is open
   const [blackMarketOpen, setBlackMarketOpen] = useState(false);
+  // the crate being opened, if any
+  const [crateOpen, setCrateOpen] = useState<string | null>(null);
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -214,15 +218,23 @@ function Game({
   /* --- body ------------------------------------------------ */
   let body: React.ReactNode;
   if (openArtifactId) {
-    body = <ArtifactDetail artifact={ARTIFACT_BY_ID[openArtifactId]}
+    body = <ArtifactDetail artifact={Att.workOf(state, openArtifactId)}
       onBack={() => setOpenArtifactId(null)} />;
+  } else if (crateOpen && (state.crates || []).some(c => c.id === crateOpen)) {
+    body = <CrateScreen state={state} crateId={crateOpen} apply={apply}
+      onClose={() => setCrateOpen(null)} />;
   } else if (expeditionGame) {
     const exp = state.expeditions.find(e => e.id === expeditionGame);
     body = exp ? (
       <ExpeditionGame state={state} expedition={exp}
         onFinish={result => {
-          apply(E.resolveExpedition(state, exp.id, result));
+          const res = E.resolveExpedition(state, exp.id, result);
+          apply(res);
           setExpeditionGame(null);
+          // straight into the reveal
+          const crates = res.state.crates || [];
+          if (!res.error && crates.length > (state.crates || []).length)
+            setCrateOpen(crates[crates.length - 1].id);
         }} />
     ) : null;
   } else if (blackMarketOpen) {
@@ -269,13 +281,16 @@ function Game({
     body = <GalleriesTab state={state} apply={apply} flash={flash}
       setState={setState} onArtifact={setOpenArtifactId} />;
   } else if (tab === 'collection') {
-    body = <CodexTab state={state} onArtifact={setOpenArtifactId} />;
+    body = <CodexTab state={state} apply={apply} onArtifact={setOpenArtifactId} />;
+  } else if (tab === 'catalogue') {
+    body = <CatalogueTab state={state} onArtifact={setOpenArtifactId} />;
   } else if (tab === 'opportunities') {
     body = <WeekTab state={state} setState={setState} flash={flash}
       goGalleries={() => setTab('floor')} onNextWeek={doNextWeek}
       onExpeditionResult={expId => setExpeditionGame(expId)}
       onGala={() => setGalaOpen(true)}
-      onBlackMarket={() => setBlackMarketOpen(true)} />;
+      onBlackMarket={() => setBlackMarketOpen(true)}
+      onOpenCrate={id => setCrateOpen(id)} apply={apply} />;
   } else if (tab === 'exploration') {
     body = <ExpeditionsTab state={state} apply={apply} />;
   } else if (tab === 'staff') {
@@ -320,6 +335,7 @@ function Shell({
     ]},
     { title: 'Collection', items: [
       ['collection', 'Collection Vault', '🖼'],
+      ['catalogue', 'Catalogue & Sets', '📖'],
       ['exploration', 'Exploration', '🧭'],
     ]},
     { title: 'Institution', items: [
@@ -340,7 +356,8 @@ function Shell({
           <div><h1>{state.galleryName || 'Museum Wars'}</h1><span className="tagline">Week {state.week} · {state.playerName || 'Director'}</span></div>
         </div>
         {inGame && <div className="director-actions">
-          {state.events.length > 0 && <button className="event-alert" onClick={() => setTab('opportunities')}>{state.events.length} opportunity{state.events.length === 1 ? '' : 'ies'}</button>}
+          {(state.crates || []).length > 0 && <button className="event-alert crate-alert" onClick={() => setTab('opportunities')}>▣ {(state.crates || []).length} crate{(state.crates || []).length === 1 ? '' : 's'}</button>}
+          {state.events.length > 0 && <button className="event-alert" onClick={() => setTab('opportunities')}>{state.events.length} opportunit{state.events.length === 1 ? 'y' : 'ies'}</button>}
           {onSimToNext && <button className="ghost sim-next-btn" onClick={onSimToNext}
             title="Run quiet weeks automatically and stop at the next notable lot, returning expedition or milestone">Sim to next opportunity ⏩</button>}
           <button className="next-week-btn" onClick={onNextWeek}>Open next week →</button>
@@ -362,7 +379,8 @@ function Shell({
             {group.items.map(([id, label, icon]) => <button key={id}
               className={'nav-action' + (tab === id ? ' active' : '')}
               onClick={() => setTab(id)}><span>{icon}</span>{label}
-              {id === 'opportunities' && state.events.length > 0 && <b>{state.events.length}</b>}
+              {id === 'opportunities' && state.events.length + (state.crates || []).length > 0
+                && <b>{state.events.length + (state.crates || []).length}</b>}
             </button>)}
           </div>)}
         </aside>}
@@ -953,7 +971,7 @@ function GalleriesTab({
             </div>
             <div className="coll-strip">
               {unplaced.map(id => {
-                const art = ARTIFACT_BY_ID[id];
+                const art = Att.workOf(state, id);
                 const band = rarityForScore(art.score);
                 const ini = art.name.split(/\s+/)
                   .filter(w => /[A-Za-z]/.test(w))
@@ -1169,7 +1187,8 @@ function MuseumFloor({
         <span className={full ? 'at-capacity' : ''}
           title="Demand above about 70% of capacity is squeezed. A full building is the signal to open rooms or move.">
           Visitors: {perDay}/day of {capacity} capacity{full ? ' — turning people away' : ''}</span>
-        <span>{openRooms.length} galleries open</span>
+        <span>{(() => { const sig = E.signatureOnDisplay(state, museum);
+          return sig ? `★ ${ARTIFACT_BY_ID[sig].name}` : `${openRooms.length} galleries open`; })()}</span>
         <span>{museum.rooms.flatMap(r => r.items).length} works displayed</span>
       </div>
     </section>
@@ -1341,7 +1360,7 @@ function GalleryRoom({
               </div>
             );
           }
-          const art = ARTIFACT_BY_ID[artId];
+          const art = Att.workOf(state, artId);
           const band = rarityForScore(art.score);
           const isLoan = loanSet.has(artId);
           const initials = art.name.split(/\s+/)
@@ -1376,8 +1395,10 @@ function GalleryRoom({
    ============================================================ */
 function WeekTab({
   state, setState, flash, goGalleries, onNextWeek, onExpeditionResult, onGala,
-  onBlackMarket,
+  onBlackMarket, onOpenCrate, apply,
 }: {
+  onOpenCrate: (crateId: string) => void;
+  apply: (r: { state: GameState; error?: string }) => void;
   state: GameState;
   setState: (s: GameState) => void;
   flash: (m: string) => void;
@@ -1392,6 +1413,8 @@ function WeekTab({
       goGalleries={goGalleries} />;
   }
   return (
+    <>
+    <CratesPanel state={state} apply={apply} onOpen={onOpenCrate} />
     <div className="panel">
       <h2>Calendar &amp; Opportunities<span className="sub">Week {state.week}</span></h2>
       {state.research && (
@@ -1530,6 +1553,7 @@ function WeekTab({
       <div className="divider" />
       <button className="big" onClick={onNextWeek}>Advance to Next Week →</button>
     </div>
+    </>
   );
 }
 
@@ -1546,7 +1570,7 @@ function EventCard({
       <div className="event-kind">Auction</div>
       <div className="event-title">{ev.house}</div>
       {ev.headlineId && <div className="headline-banner">★ Headline lot: {ARTIFACT_BY_ID[ev.headlineId].name}
-        {' '}({rarityForScore(ARTIFACT_BY_ID[ev.headlineId].score).name})</div>}
+        {' '}({rarityForScore(Att.workOf(state, ev.headlineId).score).name})</div>}
       <div className="event-body">
         {ev.lotIds.length} lots on offer — {ev.skewLabel}.
         {ev.fee > 0 ? ` Attendance fee ${money(ev.fee)}.` : ' Free to attend.'}
@@ -1554,7 +1578,7 @@ function EventCard({
       {showLots && (
         <div className="lot-preview">
           {ev.lotIds.map(id => {
-            const art = ARTIFACT_BY_ID[id];
+            const art = Att.workOf(state, id);
             const band = rarityForScore(art.score);
             return (
               <div className="lot-preview-row" key={id}>
@@ -1612,7 +1636,7 @@ function EventInterior({
               wall from the Galleries tab whenever you wish.
             </p>
             <div className="results-grid">
-              {won.map(id => <ItemCard key={id} artifact={ARTIFACT_BY_ID[id]} />)}
+              {won.map(id => <ItemCard key={id} artifact={Att.workOf(state, id)} />)}
             </div>
           </>
         )}
@@ -1643,7 +1667,7 @@ function EventInterior({
       </div>
     );
   }
-  const art = ARTIFACT_BY_ID[ev.lotIds[ev.lotIndex || 0]];
+  const art = Att.workOf(state, ev.lotIds[ev.lotIndex || 0]);
   const isLast = (ev.lotIndex || 0) >= ev.lotIds.length - 1;
   const myNext = a.currentBid + a.increment;
   const lotNum = Math.min((ev.lotIndex || 0) + 1, ev.lotIds.length);
@@ -1709,6 +1733,7 @@ function EventInterior({
         <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20 }}>
           {art.name}
         </div>
+        <div className="bid-line"><i>{Att.attributionLine(state, art.id)}</i></div>
         <div className="bid-line">
           {art.type} · {STYLES[art.style].name} · {art.year}
         </div>
@@ -1920,7 +1945,7 @@ function ExpeditionGame({
 }: {
   state: GameState;
   expedition: Expedition;
-  onFinish: (result: { objectIds?: string[]; shardsWon?: number }) => void;
+  onFinish: (result: { finds: number; shards: number; ejected: boolean }) => void;
 }) {
   const def = EXPEDITION_TIERS.find(t => t.id === expedition.tier)!;
   // explorer staff bonuses: a surveyor grants extra digs, a
@@ -1931,32 +1956,14 @@ function ExpeditionGame({
     () => Dig.makeBoard(def, bonusDigs, bonusTolerance));
   const [started, setStarted] = useState(false);
 
-  // finish: turn the board result into artifact ids / shard count
+  // finish: the board result decides how many cards the crate holds
   const collect = () => {
     const res = Dig.boardResult(board);
-    if (def.yieldsObjects) {
-      // roll that many real works of the right band+style — never a
-      // work the player already owns, or resolveExpedition drops it
-      const ids: string[] = [];
-      const owned = new Set<string>(state.owned);
-      const band = def.id === 'common' ? 'common' : 'uncommon';
-      for (let i = 0; i < res.artifacts; i++) {
-        const pool = ARTIFACTS.filter(a =>
-          a.style === expedition.style && !owned.has(a.id)
-          && (band === 'common' ? a.score < 10 : a.score >= 10 && a.score < 20));
-        const fallback = ARTIFACTS.filter(a => !owned.has(a.id)
-          && (band === 'common' ? a.score < 10 : a.score >= 10 && a.score < 20));
-        const use = pool.length ? pool : fallback;
-        if (use.length) {
-          const pick = use[Math.floor(Math.random() * use.length)];
-          ids.push(pick.id); owned.add(pick.id);
-        }
-      }
-      onFinish({ objectIds: ids });
-    } else {
-      onFinish({ shardsWon: res.shards });
-    }
+    onFinish({ finds: res.artifacts, shards: res.shards, ejected: board.ejected });
   };
+  const crateTier = E.EXPEDITION_CRATE[expedition.tier];
+  const cardsNow = E.expeditionCardCount({
+    finds: board.artifactsFound, shards: board.shardsBanked, ejected: board.ejected });
 
   // --- intro -------------------------------------------------
   if (!started) {
@@ -1974,10 +1981,9 @@ function ExpeditionGame({
           {' '}You may stop and bank your findings at any time.
         </p>
         <p className="empty-note">
-          {def.yieldsObjects
-            ? `This dig can turn up whole ${STYLES[expedition.style].name} works.`
-            : `This dig yields ${def.id} shards — bank enough to summon a `
-              + `${def.id} work.`}
+          Every ★ find is a card, and every 4 ◈ shards make another card, up to 6.
+          {' '}Whatever you bank comes home as a <b>{crateTier}</b> crate of
+          {' '}{STYLES[expedition.style].name}-leaning finds, opened card by card.
         </p>
         <div className="divider" />
         <button onClick={() => setStarted(true)}>Begin the Dig</button>
@@ -2002,20 +2008,15 @@ function ExpeditionGame({
             One hazard too many — the dig collapsed and the team escaped with
             nothing. The findings are lost.
           </p>
-        ) : def.yieldsObjects ? (
-          <p className="empty-note">
-            The team brings home {res.artifacts} whole work(s) for the
-            collection.{res.shards > 0 && ' Loose shards were left behind.'}
-          </p>
         ) : (
           <p className="empty-note">
-            The team banked <b>{res.shards} {def.id} shard(s)</b> of
-            {' '}{STYLES[expedition.style].name}. Collect {SUMMON_COST[def.id as 'rare' | 'epic']}
-            {' '}to summon a work.
+            {cardsNow > 0
+              ? <>The team packs a <b>{crateTier} crate of {cardsNow} card{cardsNow === 1 ? '' : 's'}</b>. Open it to see what you found.</>
+              : 'Nothing worth crating came out of the ground this time.'}
           </p>
         )}
         <div className="divider" />
-        <button onClick={collect}>Collect &amp; Continue</button>
+        <button onClick={collect}>{!board.ejected && cardsNow > 0 ? 'Open the crate →' : 'Continue'}</button>
       </div>
     );
   }
@@ -2027,9 +2028,8 @@ function ExpeditionGame({
         <span className="sub">{board.digsLeft} dig(s) left</span></h2>
       <div className="dig-status">
         <span>Hazards hit: {board.bombsHit}/{board.bombTolerance}</span>
-        {def.yieldsObjects
-          ? <span>Works found: {board.artifactsFound}</span>
-          : <span>Shards banked: {board.shardsBanked}</span>}
+        <span>Finds: {board.artifactsFound} ★ · {board.shardsBanked} ◈</span>
+        <span>Crate so far: {cardsNow} card{cardsNow === 1 ? '' : 's'}</span>
       </div>
       <div className={'dig-grid size-' + board.size}>
         {board.tiles.map((tile, i) => {
@@ -2089,15 +2089,6 @@ function ExpeditionsTab({
   const tierDef = EXPEDITION_TIERS.find(t => t.id === tier)!;
   const canCommission = !!style && state.funds >= tierDef.cost;
 
-  // shard holdings, grouped for the summoning panel
-  const shardRows: { tier: 'rare' | 'epic'; style: StyleId; have: number }[] = [];
-  for (const key of Object.keys(state.shards)) {
-    const have = state.shards[key];
-    if (have <= 0) continue;
-    const [t, st] = key.split(':') as ['rare' | 'epic', StyleId];
-    shardRows.push({ tier: t, style: st, have });
-  }
-
   return (
     <>
       {ready.length > 0 && (
@@ -2109,39 +2100,8 @@ function ExpeditionsTab({
         </div>
       )}
 
-      {/* summoning */}
-      <div className="panel">
-        <h2>Summoning<span className="sub">spend shards on a work</span></h2>
-        {shardRows.length === 0 ? (
-          <p className="empty-note">
-            No shards yet. Rare and Epic expeditions bank shards; collect
-            enough of one style to summon a work.
-          </p>
-        ) : (
-          shardRows.map(row => {
-            const cost = SUMMON_COST[row.tier];
-            const ready2 = row.have >= cost;
-            return (
-              <div className="row" key={row.tier + row.style}>
-                <div className="meta">
-                  <div className="name">
-                    {row.tier === 'rare' ? 'Rare' : 'Epic'} ·
-                    {' '}{STYLES[row.style].name}
-                  </div>
-                  <div className="info">
-                    {row.have} / {cost} shards
-                    {ready2 ? ' — ready to summon' : ' — keep digging'}
-                  </div>
-                </div>
-                <button disabled={!ready2}
-                  onClick={() => apply(E.summonArtifact(state, row.tier, row.style))}>
-                  Summon
-                </button>
-              </div>
-            );
-          })
-        )}
-      </div>
+      <DustPanel state={state} />
+
 
       {/* active expeditions */}
       <div className="panel">
@@ -3078,9 +3038,10 @@ function CompetitorsTab({ state }: { state: GameState; apply: (r: {state: GameSt
    CODEX TAB — every artwork; unowned shown locked
    ============================================================ */
 function CodexTab({
-  state, onArtifact,
+  state, apply, onArtifact,
 }: {
   state: GameState;
+  apply: (r: { state: GameState; error?: string }) => void;
   onArtifact: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -3099,8 +3060,8 @@ function CodexTab({
 
   const q = query.trim().toLowerCase();
   const list = state.owned
-    .map(id => ARTIFACT_BY_ID[id])
-    .filter(Boolean)
+    .filter(id => ARTIFACT_BY_ID[id])
+    .map(id => Att.workOf(state, id))
     .filter(a => {
       if (fRarity !== 'all' && rarityForScore(a.score).id !== fRarity) return false;
       if (fStyle !== 'all' && a.style !== fStyle) return false;
@@ -3113,7 +3074,7 @@ function CodexTab({
   const displayed = state.owned.filter(id => displayLocation.has(id)).length;
   const stored = state.owned.length - displayed;
   const totalValue = state.owned.reduce(
-    (sum, id) => sum + (ARTIFACT_BY_ID[id]?.value || 0), 0,
+    (sum, id) => sum + (ARTIFACT_BY_ID[id] ? Att.workOf(state, id).value : 0), 0,
   );
 
   return (
@@ -3168,8 +3129,13 @@ function CodexTab({
               : state.restorationOwed[art.id] ? 'Restoration required'
               : state.stolenUndeclared[art.id] ? 'Declaration required'
               : null;
+            const doubtful = Att.isDoubtful(state, art.id);
+            const settled = !!state.attributions?.[art.id]?.settled;
+            const studying = (state.studies || []).find(x => x.artifactId === art.id);
+            const isSig = state.signatureId === art.id;
             return (
-              <button key={art.id} className="vault-card" onClick={() => onArtifact(art.id)}>
+              <div key={art.id} className={'vault-card-wrap' + (isSig ? ' signature' : '')}>
+              <button className="vault-card" onClick={() => onArtifact(art.id)}>
                 <Thumb artifact={art} size="lg" />
                 <span className="vault-card-body">
                   <span className="vault-card-topline">
@@ -3177,7 +3143,7 @@ function CodexTab({
                     <span className="vault-score">Quality {art.score}</span>
                   </span>
                   <strong>{art.name}</strong>
-                  <span>{art.author || 'Unknown artist'} · {art.year}</span>
+                  <span>{Att.attributionLine(state, art.id)} · {art.year}</span>
                   <span>{art.type} · {STYLES[art.style].name}</span>
                   <span className={'vault-location' + (location ? ' displayed' : '')}>
                     {issue || location || 'In storage'}
@@ -3185,6 +3151,16 @@ function CodexTab({
                   <span className="vault-value">{money(art.value)}</span>
                 </span>
               </button>
+              <span className="vault-actions">
+                {isSig ? <span className="sig-badge">★ Signature work</span>
+                  : location && <button className="ghost" onClick={() => apply(E.setSignature(state, art.id))}>Make signature</button>}
+                {doubtful && !settled && (studying
+                  ? <span className="study-badge">Study: {studying.weeksLeft} wk left</span>
+                  : <button className="ghost" title="A researcher studies who really made it. Some turn out to be the master's own hand."
+                      onClick={() => apply(E.startStudy(state, art.id))}>Study attribution · {money(Att.studyCost(state, art.id))}</button>)}
+                {doubtful && settled && <span className="study-badge">Attribution settled</span>}
+              </span>
+              </div>
             );
           })}
         </section>

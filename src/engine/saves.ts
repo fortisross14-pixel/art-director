@@ -62,6 +62,19 @@ function migrateState(state: Partial<GameState>): GameState {
     if (typeof r.budget !== 'number') r.budget = 15000;
     if (!r.style) r.style = (r.heirloomId && ARTIFACT_BY_ID[r.heirloomId]?.style) || 'baroque';
   }
+  // v0.9: crates, dust, attributions. Old per-style shards become dust.
+  if (!Array.isArray(s.crates)) s.crates = [];
+  if (typeof s.dust !== 'number') {
+    const shards = Object.values(s.shards || {}).reduce((n, v) => n + (Number(v) || 0), 0);
+    s.dust = Math.round(shards / 2);
+    s.shards = {};
+  }
+  if (typeof s.cratePity !== 'number') s.cratePity = 0;
+  if (s.estateOffer === undefined) s.estateOffer = null;
+  if (!s.attributions || typeof s.attributions !== 'object') s.attributions = {};
+  if (!Array.isArray(s.studies)) s.studies = [];
+  if (!Array.isArray(s.completedSets)) s.completedSets = [];
+  if (s.signatureId === undefined) s.signatureId = null;
   if (s.auction && !s.auction.rivalName) {
     s.auction.rivalName = 'A private collector';
     s.auction.rivalId = null;
