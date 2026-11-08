@@ -1,25 +1,14 @@
 import type { GameState, Room, StyleId } from '../data/types';
-import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { STYLES, districtOfBuilding, STATIC_MUSEUMS } from '../data/constants';
-import { activeMuseum, museumById, roomRatings } from './game';
+import { activeMuseum, museumById } from './game';
+import { roomRatings, DECOR } from './ratings';
+import type { ThesisId } from './ratings';
 import { money, uid } from './util';
 
-export type ThesisId = 'movement' | 'artist' | 'period' | 'region' | 'medium' | 'dialogue';
-export const THESES: Record<ThesisId, {name:string; blurb:string}> = {
-  movement:{name:'Movement survey',blurb:'A clear overview of one artistic movement.'},
-  artist:{name:'Artist focus',blurb:'Build the room around one artist and their circle.'},
-  period:{name:'Period panorama',blurb:'Connect works made within a close historical era.'},
-  region:{name:'Place and school',blurb:'Explore a region, court, city, or artistic school.'},
-  medium:{name:'Medium and technique',blurb:'Compare how artists used a shared medium.'},
-  dialogue:{name:'Dialogue across time',blurb:'Intentionally contrast periods through research.'},
-};
-
-export const DECOR = {
-  classic:{name:'Classic gallery',best:['renaissance','baroque','romanticism','medieval']},
-  dramatic:{name:'Dramatic staging',best:['baroque','egyptian','medieval','precolumbian']},
-  minimal:{name:'Minimal white cube',best:['modernism','contemporary','impressionism']},
-  immersive:{name:'Immersive interpretation',best:['egyptian','islamic','asian','popculture']},
-} as const;
+export { THESES, DECOR, styleResearchLevel } from './ratings';
+export type { ThesisId } from './ratings';
+/** kept for existing callers: the full room rating breakdown */
+export const detailedRoomRatings = roomRatings;
 
 export const STYLE_RESEARCH_NODES: Record<StyleId, {id:string;name:string;weeks:number;cost:number;effect:string}[]> = Object.fromEntries(
   Object.keys(STYLES).map(style => [style, [
@@ -31,35 +20,6 @@ export const STYLE_RESEARCH_NODES: Record<StyleId, {id:string;name:string;weeks:
     {id:'dialogue',name:'Cross-Period Dialogue',weeks:5,cost:5600,effect:'Makes intentional mixed exhibitions viable.'},
   ]])
 ) as Record<StyleId, {id:string;name:string;weeks:number;cost:number;effect:string}[]>;
-
-function year(a:string){ return Number(String(a).match(/\d{3,4}/)?.[0] || 0); }
-function assignedSkill(s:GameState,id?:string|null){ return id ? (s.staff.find(x=>x.id===id)?.skill || 0) : 0; }
-export function styleResearchLevel(s:GameState, style:StyleId){ return s.styleResearch?.[style]?.completed?.length || 0; }
-
-export function detailedRoomRatings(s:GameState, room:Room){
-  const base=roomRatings(room); const works=room.items.map(id=>ARTIFACT_BY_ID[id]).filter(Boolean);
-  if(!works.length || !room.theme) return {...base,collectionStrength:0,curatorialDepth:0,interpretation:0,comfort:0,decorFit:0,visitorAppeal:0};
-  const avg=works.reduce((n,a)=>n+a.score,0)/works.length;
-  const collectionStrength=Math.min(100,Math.round(18+Math.sqrt(avg)*6+Math.min(works.length,5)*4));
-  const research=styleResearchLevel(s,room.theme);
-  const curator=assignedSkill(s,room.assignedCuratorId);
-  const educator=assignedSkill(s,room.assignedResearcherId);
-  const thesis=(room.thesis || 'movement') as ThesisId;
-  let thesisFit=base.cohesion;
-  if(thesis==='artist' && works.length>1){ const top=Math.max(...Object.values(works.reduce((m,a)=>(m[a.author]=(m[a.author]||0)+1,m),{} as Record<string,number>))); thesisFit=Math.round(top/works.length*100); }
-  if(thesis==='period' && works.length>1){ const ys=works.map(a=>year(a.year)).filter(Boolean); thesisFit=ys.length?Math.max(20,100-(Math.max(...ys)-Math.min(...ys))/2):50; }
-  if(thesis==='medium'){ const types=new Set(works.map(a=>a.type)); thesisFit=Math.max(25,110-types.size*22); }
-  if(thesis==='dialogue') thesisFit=research>=6?Math.max(base.cohesion,78):Math.round(base.cohesion*.72);
-  const curatorialDepth=Math.min(100,Math.round(12+research*10+curator*9+thesisFit*.35));
-  const interpretation=Math.min(100,Math.round((room.interpretation||0)*22+research*5+educator*10));
-  const decor=(room.decorStyle||'classic') as keyof typeof DECOR;
-  const decorFit=DECOR[decor].best.includes(room.theme as never)?100:58;
-  const comfort=Math.min(100,Math.round((room.amenities||0)*27+35));
-  const attractiveness=Math.min(100,Math.round(thesisFit*.38+(room.decoration||0)*15+comfort*.18+decorFit*.15));
-  const artQuality=Math.min(100,Math.round(collectionStrength*.55+curatorialDepth*.28+interpretation*.17));
-  const visitorAppeal=Math.round(artQuality*.48+attractiveness*.52);
-  return {artQuality,attractiveness,cohesion:Math.round(thesisFit),collectionStrength,curatorialDepth,interpretation,comfort,decorFit,visitorAppeal};
-}
 
 export function visitorSegments(s:GameState, museumId?:string){
   const m=museumId?museumById(s,museumId):activeMuseum(s); const rooms=m.rooms.filter(r=>r.unlocked&&r.items.length);

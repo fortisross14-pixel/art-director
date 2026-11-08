@@ -5,6 +5,8 @@
    ============================================================ */
 import type { GameState, SaveSlot } from '../data/types';
 import { makeCandidates } from './game';
+import { ARTIFACT_BY_ID } from '../data/artifacts';
+import { ROOM_CAPACITY } from '../data/constants';
 
 const KEY = (slot: number) => `museum-wars:slot:${slot}`;
 export const SLOT_COUNT = 3;
@@ -53,6 +55,17 @@ function migrateState(state: Partial<GameState>): GameState {
   if (typeof s.memberships !== 'number') s.memberships = 0;
   if (!s.museumRelations || typeof s.museumRelations !== 'object') s.museumRelations = {};
   if (s.weeklyReport === undefined) s.weeklyReport = null;
+  // v0.8: rarity pacing and cousins who collect
+  if (!s.market) s.market = { weeksSinceRarePlus: 0, lastHeadlineWeek: (s.week || 1) - 7 };
+  for (const r of s.rivals) {
+    if (!Array.isArray(r.collection)) r.collection = [];
+    if (typeof r.budget !== 'number') r.budget = 15000;
+    if (!r.style) r.style = (r.heirloomId && ARTIFACT_BY_ID[r.heirloomId]?.style) || 'baroque';
+  }
+  if (s.auction && !s.auction.rivalName) {
+    s.auction.rivalName = 'A private collector';
+    s.auction.rivalId = null;
+  }
 
   // --- multi-museum migration ---------------------------------
   // a pre-multimuseum save kept rooms/fame/buildingId/etc. flat on
@@ -92,7 +105,11 @@ function migrateState(state: Partial<GameState>): GameState {
       && typeof sp.weeksLeft === 'number');
     if (!m.wingNames) m.wingNames = {};
     if (typeof m.adWeeksLeft !== 'number') m.adWeeksLeft = 0;
+    // v0.8: fame gains a reputation breakdown; old fame counts as prestige
+    if (!m.reputation) m.reputation = { prestige: m.fame || 0, popularity: 0, patronage: 0 };
     for (const r of m.rooms) {
+      // rooms already full were paid their completion bonus long ago
+      if (r.completedOnce === undefined) r.completedOnce = r.items.length >= ROOM_CAPACITY;
       if (r.thesis === undefined) r.thesis = 'movement';
       if (r.decorStyle === undefined) r.decorStyle = 'classic';
       if (r.assignedCuratorId === undefined) r.assignedCuratorId = null;

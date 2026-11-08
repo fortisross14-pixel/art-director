@@ -58,13 +58,13 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   local: {
     id: 'local', name: 'Local Gallery',
     blurb: 'A rented room in a small city. A beginning.',
-    prestige: 1.0, moveCost: 0, maintenance: 1750,
+    prestige: 1.0, moveCost: 0, maintenance: 1750, capacity: 180,
     halls: [{ id: 'ground', name: 'Ground Floor', roomCap: 3, startRooms: 1 }],
   },
   town: {
     id: 'town', name: 'Town Museum',
     blurb: 'A civic museum across two halls — room to grow.',
-    prestige: 1.25, moveCost: 22000, maintenance: 8000,
+    prestige: 1.25, moveCost: 22000, maintenance: 8000, capacity: 500,
     halls: [
       { id: 'east', name: 'East Hall', roomCap: 4, startRooms: 1 },
       { id: 'west', name: 'West Hall', roomCap: 3, startRooms: 0 },
@@ -74,7 +74,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   palace: {
     id: 'palace', name: 'Historic Palace',
     blurb: 'A grand palace of five wings — the address of a great museum.',
-    prestige: 1.6, moveCost: 220000, maintenance: 46000,
+    prestige: 1.6, moveCost: 220000, maintenance: 46000, capacity: 3000,
     halls: [
       { id: 'north', name: 'North Wing', roomCap: 5, startRooms: 1 },
       { id: 'south', name: 'South Wing', roomCap: 5, startRooms: 0 },
@@ -86,7 +86,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   salon: {
     id: 'salon', name: 'The Beaux-Arts Salon',
     blurb: 'An elegant exhibition house — modest, but a fine pedigree.',
-    prestige: 1.4, moveCost: 95000, maintenance: 19000,
+    prestige: 1.4, moveCost: 95000, maintenance: 19000, capacity: 900,
     halls: [
       { id: 'upper', name: 'Upper Salon', roomCap: 4, startRooms: 1 },
       { id: 'lower', name: 'Lower Salon', roomCap: 4, startRooms: 0 },
@@ -96,7 +96,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   college: {
     id: 'college', name: 'University Museum',
     blurb: 'A teaching museum on campus — busy halls, young crowds.',
-    prestige: 1.2, moveCost: 40000, maintenance: 11000,
+    prestige: 1.2, moveCost: 40000, maintenance: 11000, capacity: 650,
     halls: [
       { id: 'first',  name: 'First Floor',  roomCap: 4, startRooms: 1 },
       { id: 'second', name: 'Second Floor', roomCap: 4, startRooms: 0 },
@@ -107,7 +107,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   loft: {
     id: 'loft', name: 'The Artists\u2019 Loft',
     blurb: 'A converted studio block — raw character, low overhead.',
-    prestige: 1.15, moveCost: 30000, maintenance: 6500,
+    prestige: 1.15, moveCost: 30000, maintenance: 6500, capacity: 350,
     halls: [
       { id: 'main', name: 'Loft Floor', roomCap: 5, startRooms: 1 },
     ],
@@ -116,7 +116,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   tower: {
     id: 'tower', name: 'The Gallery Tower',
     blurb: 'A high-rise museum — many floors, steep rent, vast footfall.',
-    prestige: 1.45, moveCost: 130000, maintenance: 33000,
+    prestige: 1.45, moveCost: 130000, maintenance: 33000, capacity: 1600,
     halls: [
       { id: 'f2', name: 'Second Floor', roomCap: 3, startRooms: 1 },
       { id: 'f3', name: 'Third Floor',  roomCap: 3, startRooms: 0 },
@@ -128,7 +128,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   pavilion: {
     id: 'pavilion', name: 'The Park Pavilion',
     blurb: 'A glass pavilion among the gardens — calm, and a gentle upkeep.',
-    prestige: 1.3, moveCost: 60000, maintenance: 13000,
+    prestige: 1.3, moveCost: 60000, maintenance: 13000, capacity: 700,
     halls: [
       { id: 'glass', name: 'Glass Hall', roomCap: 4, startRooms: 1 },
       { id: 'garden', name: 'Garden Hall', roomCap: 4, startRooms: 0 },
@@ -138,7 +138,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   warehouse: {
     id: 'warehouse', name: 'The Dockside Warehouse',
     blurb: 'A cavernous old warehouse on the water — cheap space, lots of it.',
-    prestige: 1.2, moveCost: 70000, maintenance: 12000,
+    prestige: 1.2, moveCost: 70000, maintenance: 12000, capacity: 1000,
     halls: [
       { id: 'hold', name: 'The Hold',    roomCap: 5, startRooms: 1 },
       { id: 'wharf', name: 'Wharf Hall', roomCap: 5, startRooms: 0 },
@@ -222,7 +222,7 @@ export const AUCTION_HOUSES: AuctionHouseDef[] = [
     name: 'The Old Quarter Saleroom',
     blurb: 'A modest saleroom of estate clearances and minor lots.',
     fameToUnlock: 0, joinFee: 0, attendFee: 0,
-    rarityWeights: [90, 9, 1, 0, 0],
+    rarityWeights: [82, 14, 4, 0, 0],
   },
   {
     id: 'house2',

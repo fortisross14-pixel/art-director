@@ -12,6 +12,7 @@
 import type {
   GameState, StyleId, Room, GameEvent, LogEntry, RivalPlayer,
   StaffMember, StaffRole, Expedition, ExpeditionTier, Museum,
+  Reputation, ReputationKind, MarketPacing,
 } from '../data/types';
 import {
   STYLES, STYLE_IDS, BUILDINGS, BUILDING_ORDER, ROOM_CAPACITY,
@@ -23,6 +24,8 @@ import type { AuctionHouseDef } from '../data/constants';
 import type { PurchaseOutcome as BMPurchaseOutcome } from './blackmarket';
 import { ARTIFACTS, ARTIFACT_BY_ID } from '../data/artifacts';
 import { randInt, rand, money, uid, gaussian } from './util';
+import { roomRatings } from './ratings';
+export { roomRatings } from './ratings';
 
 type Result = { state: GameState; error?: string };
 
@@ -52,7 +55,46 @@ function makeRivals(): RivalPlayer[] {
     fame: randInt(4, 12),
     quality: randInt(20, 60),
     visitors: randInt(80, 220),
+    style: STYLE_IDS[randInt(0, STYLE_IDS.length - 1)],
+    collection: [],
+    budget: 15000,
   }));
+}
+
+/** How each cousin behaves in the market. Index matches RIVAL_NAMES.
+ *  - the rival:       spends boldly and bids high in their style
+ *  - the slow one:    saves and rarely buys, but buys well
+ *  - the fast starter: buys a lot early, then their income dries up */
+const RIVAL_TEMPER = [
+  { income: 1700, buyChance: 0.30, spendShare: 0.85, incomeDecay: 0 },
+  { income: 1100, buyChance: 0.12, spendShare: 0.70, incomeDecay: 0 },
+  { income: 2600, buyChance: 0.40, spendShare: 0.90, incomeDecay: 0.012 },
+];
+
+/** every work some cousin owns */
+export function rivalOwnedIds(s: GameState): Set<string> {
+  const ids = new Set<string>();
+  for (const r of s.rivals) {
+    if (r.heirloomId) ids.add(r.heirloomId);
+    for (const id of r.collection || []) ids.add(id);
+  }
+  return ids;
+}
+
+/** a cousin's museum strength, from the works they actually own */
+function rivalQuality(r: RivalPlayer): number {
+  const ids = [...(r.collection || []), ...(r.heirloomId ? [r.heirloomId] : [])];
+  return ids.reduce((n, id) => n + (ARTIFACT_BY_ID[id]?.score || 0), 0);
+}
+
+/** Give a cousin a work (from an auction they won or a private buy). */
+function rivalAcquire(r: RivalPlayer, artId: string, price: number): RivalPlayer {
+  return {
+    ...r,
+    collection: [...(r.collection || []), artId],
+    budget: Math.max(0, (r.budget || 0) - price),
+    fame: r.fame + Math.max(1, Math.round(ARTIFACT_BY_ID[artId].score * 0.25)),
+  };
 }
 
 /* --- museum helpers ---------------------------------------- */
@@ -70,8 +112,31 @@ export function makeMuseum(buildingId: string, name: string): Museum {
     wingNames: {},
     adWeeksLeft: 0,
     loans: [],
+    reputation: { prestige: 0, popularity: 0, patronage: 0 },
     open: true,
   };
+}
+
+/* --- reputation -------------------------------------------- */
+/** a museum's reputation breakdown (old saves: all fame is prestige) */
+export function reputationOf(m: Museum): Reputation {
+  return m.reputation || { prestige: m.fame, popularity: 0, patronage: 0 };
+}
+/** Add (or remove) reputation of one kind. `fame` stays the sum. */
+export function addReputation(m: Museum, kind: ReputationKind, amount: number): void {
+  const r = { ...reputationOf(m) };
+  r[kind] = Math.max(0, r[kind] + amount);
+  m.reputation = r;
+  m.fame = Math.round(r.prestige + r.popularity + r.patronage);
+}
+/** combined reputation across every open museum */
+export function totalReputation(s: GameState): Reputation {
+  const out = { prestige: 0, popularity: 0, patronage: 0 };
+  for (const m of openMuseums(s)) {
+    const r = reputationOf(m);
+    out.prestige += r.prestige; out.popularity += r.popularity; out.patronage += r.patronage;
+  }
+  return out;
 }
 /** the museum the player is currently viewing/managing */
 export function activeMuseum(s: GameState): Museum {
@@ -130,6 +195,7 @@ export function newGame(): GameState {
     memberships: 0,
     museumRelations: {},
     weeklyReport: null,
+    market: { weeksSinceRarePlus: 0, lastHeadlineWeek: FIRST_HEADLINE_WEEK - HEADLINE_EVERY },
     phase: 'choose-specialty',
   };
 }
@@ -154,11 +220,13 @@ function fork(s: GameState): GameState {
       sponsors: m.sponsors.map(sp => ({ ...sp })),
       wingNames: { ...m.wingNames },
       loans: m.loans.map(l => ({ ...l })),
+      reputation: m.reputation ? { ...m.reputation } : undefined,
     })),
     expertise: { ...s.expertise },
     specialties: [...s.specialties],
     owned: [...s.owned],
-    rivals: s.rivals.map(r => ({ ...r })),
+    rivals: s.rivals.map(r => ({ ...r, collection: [...(r.collection || [])] })),
+    market: s.market ? { ...s.market } : undefined,
     log: [...s.log],
     staff: s.staff.map(m => ({ ...m })),
     candidates: s.candidates.map(m => ({ ...m })),
@@ -229,6 +297,7 @@ export function chooseFoundingArtwork(
         fame: r.fame + Math.round(heirloom.score * 0.4),
         quality: r.quality + heirloom.score,
         heirloomId: heirloom.id,
+        style: heirloom.style,
       };
     });
   }
@@ -540,8 +609,9 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
   // candidate pool: not owned, not a World Icon, and the house
   // must actually offer that rarity band (weight > 0).
   const styleSet = new Set(s.specialties);
+  const cousins = rivalOwnedIds(s);
   const pool = ARTIFACTS.filter(a => {
-    if (s.owned.includes(a.id)) return false;
+    if (s.owned.includes(a.id) || cousins.has(a.id)) return false;
     const band = bandIndexForScore(a.score);
     if (band >= 5) return false;                 // never auction World Icons
     return h.rarityWeights[band] > 0;
@@ -579,7 +649,54 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
   };
 }
 
-/** Each week, every JOINED house may hold a sale. */
+/* --- rarity pacing -----------------------------------------
+   Pure random lots left whole years without a Rare. Two rules put
+   the supply on a curve instead:
+     * a HEADLINE lot every season at the best house you belong to,
+       one notch above what that house usually offers
+     * a PITY timer: if no Rare-or-better lot has been offered for
+       PITY_WEEKS, the next sale is guaranteed to carry one */
+export const HEADLINE_EVERY = 13;
+export const PITY_WEEKS = 8;
+/** the first headline lot arrives early, to show what's possible */
+const FIRST_HEADLINE_WEEK = 6;
+
+function houseTopBand(h: AuctionHouseDef): number {
+  let top = 0;
+  h.rarityWeights.forEach((w, i) => { if (w > 0) top = i; });
+  return top;
+}
+
+/** an unowned lot of an exact rarity band, preferring the player's styles */
+function pickLotOfBand(s: GameState, band: number, exclude: Set<string>): string | null {
+  const styles = new Set(s.specialties);
+  const pool = ARTIFACTS.filter(a => bandIndexForScore(a.score) === band
+    && !exclude.has(a.id));
+  if (!pool.length) return null;
+  const mine = pool.filter(a => styles.has(a.style));
+  const from = mine.length && Math.random() < 0.7 ? mine : pool;
+  return from[randInt(0, from.length - 1)].id;
+}
+
+function emptyHouseEvent(h: AuctionHouseDef): GameEvent {
+  return {
+    id: uid('ev'), kind: 'auction', houseId: h.id, house: h.name,
+    skewLabel: houseSkewLabel(h), fee: h.attendFee, lotIds: [],
+  };
+}
+
+/** put a lot into this week's sale at house `h`, creating the sale if needed */
+function addLot(events: GameEvent[], h: AuctionHouseDef, id: string): GameEvent {
+  let ev = events.find(e => e.houseId === h.id);
+  if (!ev) { ev = emptyHouseEvent(h); events.push(ev); }
+  if (ev.lotIds.length >= 5) ev.lotIds[ev.lotIds.length - 1] = id;
+  else ev.lotIds.push(id);
+  return ev;
+}
+
+/** Each week, every JOINED house may hold a sale. Updates
+ *  `s.market` (the pacing counters) in place, so call it on a
+ *  freshly forked state. */
 export function rollEvents(s: GameState): GameEvent[] {
   const events: GameEvent[] = [];
   for (const h of joinedHouses(s)) {
@@ -589,6 +706,36 @@ export function rollEvents(s: GameState): GameEvent[] {
     if (Math.random() <= chance) {
       const ev = buildHouseAuction(s, h);
       if (ev) events.push(ev);
+    }
+  }
+
+  const market: MarketPacing = s.market
+    || (s.market = { weeksSinceRarePlus: 0, lastHeadlineWeek: FIRST_HEADLINE_WEEK - HEADLINE_EVERY });
+  const exclude = new Set([...s.owned, ...rivalOwnedIds(s),
+    ...events.flatMap(e => e.lotIds)]);
+  const houses = [...joinedHouses(s)].sort((a, b) => b.fameToUnlock - a.fameToUnlock);
+
+  // the season's headline lot
+  if (houses.length && s.week - market.lastHeadlineWeek >= HEADLINE_EVERY) {
+    const top = houses[0];
+    const id = pickLotOfBand(s, Math.max(2, Math.min(4, houseTopBand(top))), exclude);
+    if (id) {
+      addLot(events, top, id).headlineId = id;
+      exclude.add(id);
+      market.lastHeadlineWeek = s.week;
+    }
+  }
+
+  // the pity timer
+  const hasRarePlus = events.some(e =>
+    e.lotIds.some(id => bandIndexForScore(ARTIFACT_BY_ID[id].score) >= 2));
+  if (hasRarePlus) {
+    market.weeksSinceRarePlus = 0;
+  } else if (++market.weeksSinceRarePlus >= PITY_WEEKS && houses.length) {
+    const id = pickLotOfBand(s, 2, exclude);
+    if (id) {
+      addLot(events, events.length ? AUCTION_HOUSES.find(h => h.id === events[0].houseId)! : houses[0], id);
+      market.weeksSinceRarePlus = 0;
     }
   }
   return events;
@@ -647,14 +794,23 @@ export function finishLot(s: GameState): GameState {
     // won items go straight to the collection — they are placed
     // later from the Galleries tab, so the auction can continue.
     const fameGain = Math.max(1, Math.round(art.score * 0.25));
-    activeMuseum(next).fame += fameGain;
+    addReputation(activeMuseum(next), 'prestige', fameGain);
     next.expertise[art.style] = Math.min(5,
       +(((next.expertise[art.style] || 0) + 0.2 + art.score / 500)).toFixed(2));
     next = logged(next, { kind: 'good',
       text: `Acquired ${art.name} for ${money(a.currentBid)}. +${fameGain} fame.` });
   } else {
     const art = ARTIFACT_BY_ID[a.artifactId];
-    next = logged(next, { kind: 'bad', text: `Lost ${art.name} at auction.` });
+    const cousin = a.rivalId && a.leader === 'rival'
+      ? next.rivals.find(r => r.id === a.rivalId) : null;
+    if (cousin) {
+      next.rivals = next.rivals.map(r =>
+        r.id === cousin.id ? rivalAcquire(r, art.id, a.currentBid) : r);
+      next = logged(next, { kind: 'bad',
+        text: `${cousin.name} won ${art.name} for ${money(a.currentBid)} — it will hang in their museum.` });
+    } else {
+      next = logged(next, { kind: 'bad', text: `Lost ${art.name} at auction.` });
+    }
   }
   if (next.activeEvent) {
     next.activeEvent = {
@@ -691,11 +847,14 @@ export function placeArtifact(s: GameState, roomId: number): Result {
   next = logged(next, { kind: 'good',
     text: `Placed ${art.name} in the ${STYLES[room.theme!].name} gallery.` });
   const filled = activeMuseum(next).rooms.find(r => r.id === roomId)!;
-  if (roomIsFull(filled)) {
+  // the completion bonus is paid once per room, so taking a work
+  // down and re-hanging it cannot farm fame
+  if (roomIsFull(filled) && !filled.completedOnce) {
+    filled.completedOnce = true;
     const quality = filled.items.reduce(
       (acc, id) => acc + ARTIFACT_BY_ID[id].score, 0);
     const bonus = 20 + Math.round(quality * 0.18);
-    activeMuseum(next).fame += bonus;
+    addReputation(activeMuseum(next), 'prestige', bonus);
     next = logged(next, { kind: 'good',
       text: `Completed a ${STYLES[filled.theme!].name} room — +${bonus} fame.` });
   }
@@ -727,6 +886,9 @@ export function quickSellPrice(artId: string): number {
 function deaccession(s: GameState, artId: string): GameState {
   const next = fork(s);
   next.owned = next.owned.filter(id => id !== artId);
+  // donors dislike seeing significant works sold off
+  const score = ARTIFACT_BY_ID[artId]?.score || 0;
+  if (score >= 20) addReputation(activeMuseum(next), 'patronage', -Math.min(25, Math.round(score * 0.08)));
   for (const m of next.museums) {
     m.rooms = m.rooms.map(r =>
       r.items.includes(artId)
@@ -1124,7 +1286,7 @@ export function resolveExpedition(
     for (const id of ids) {
       next.owned.push(id);
       const art = ARTIFACT_BY_ID[id];
-      activeMuseum(next).fame += Math.max(1, Math.round(art.score * 0.3));
+      addReputation(activeMuseum(next), 'prestige', Math.max(1, Math.round(art.score * 0.3)));
       next.expertise[art.style] = Math.min(5,
         +(((next.expertise[art.style] || 0) + 0.2 + art.score / 500)).toFixed(2));
     }
@@ -1170,7 +1332,7 @@ export function summonArtifact(
   const key = shardKey(tier, style);
   next.shards = { ...next.shards, [key]: have - cost };
   next.owned.push(art.id);
-  activeMuseum(next).fame += Math.max(1, Math.round(art.score * 0.3));
+  addReputation(activeMuseum(next), 'prestige', Math.max(1, Math.round(art.score * 0.3)));
   next.expertise[art.style] = Math.min(5,
     +(((next.expertise[art.style] || 0) + 0.25 + art.score / 500)).toFixed(2));
   next = logged(next, { kind: 'good',
@@ -1278,7 +1440,7 @@ export function buyBlackMarket(
 
   // a genuine / altered / misattributed / stolen work — it joins
   // the collection and earns the usual acquisition fame
-  activeMuseum(next).fame += Math.max(1, Math.round(art.score * 0.2));
+  addReputation(activeMuseum(next), 'prestige', Math.max(1, Math.round(art.score * 0.2)));
   next.expertise[art.style] = Math.min(5,
     +(((next.expertise[art.style] || 0) + 0.2 + art.score / 500)).toFixed(2));
 
@@ -1354,52 +1516,9 @@ export function runAdCampaign(s: GameState, museumId?: string): Result {
 /* --- exhibition presentation ------------------------------ */
 export type RoomUpgrade = 'decoration' | 'interpretation' | 'amenities';
 
-export function roomRatings(room: Room): {
-  artQuality: number; attractiveness: number; cohesion: number;
-} {
-  const works = room.items.map(id => ARTIFACT_BY_ID[id]).filter(Boolean);
-  if (!room.unlocked || !room.theme || works.length === 0)
-    return { artQuality: 0, attractiveness: 0, cohesion: 0 };
-
-  const avgScore = works.reduce((n, a) => n + a.score, 0) / works.length;
-  const interpretation = room.interpretation || 0;
-  const decoration = room.decoration || 0;
-  const amenities = room.amenities || 0;
-
-  let relatedPairs = 0;
-  let pairWeight = 0;
-  for (let i = 0; i < works.length; i++) {
-    for (let j = i + 1; j < works.length; j++) {
-      pairWeight++;
-      // Works may be placed in any themed room. Matching the room theme and
-      // one another creates visual coherence; deliberate mismatches remain legal
-      // but lower attractiveness rather than blocking the player.
-      const iMatches = works[i].style === room.theme;
-      const jMatches = works[j].style === room.theme;
-      let link = iMatches && jMatches ? 0.42
-        : works[i].style === works[j].style ? 0.28 : 0.04;
-      if (works[i].author === works[j].author) link += 0.28;
-      if (works[i].type === works[j].type) link += 0.14;
-      const y1 = Number(String(works[i].year).match(/\d{3,4}/)?.[0] || 0);
-      const y2 = Number(String(works[j].year).match(/\d{3,4}/)?.[0] || 0);
-      if (y1 && y2 && Math.abs(y1 - y2) <= 35) link += 0.16;
-      relatedPairs += Math.min(1, link);
-    }
-  }
-  const themeMatch = works.filter(a => a.style === room.theme).length / works.length;
-  const pairCohesion = works.length === 1 ? (themeMatch ? 72 : 24)
-    : Math.round((relatedPairs / Math.max(1, pairWeight)) * 100);
-  const cohesion = Math.round(pairCohesion * 0.72 + themeMatch * 100 * 0.28);
-  const artQuality = Math.round(Math.min(100,
-    16 + Math.sqrt(avgScore) * 5.1 + interpretation * 9 + Math.min(works.length, 5) * 3));
-  const attractiveness = Math.round(Math.min(100,
-    12 + cohesion * 0.48 + decoration * 10 + amenities * 6 + Math.min(works.length, 5) * 3));
-  return { artQuality, attractiveness, cohesion };
-}
-
 export function museumExhibitionRatings(s: GameState, museumId?: string) {
   const mus = museumId ? museumById(s, museumId) : activeMuseum(s);
-  const rated = mus.rooms.filter(r => r.unlocked && r.items.length).map(roomRatings);
+  const rated = mus.rooms.filter(r => r.unlocked && r.items.length).map(r => roomRatings(s, r));
   if (!rated.length) return { artQuality: 0, attractiveness: 0 };
   return {
     artQuality: Math.round(rated.reduce((n, r) => n + r.artQuality, 0) / rated.length),
@@ -1506,7 +1625,7 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
   // collection in incoherent, bare rooms underperforms; strong curation and
   // interpretation turn quality into attendance.
   const ratings = museumExhibitionRatings(s, mus.id);
-  const presentationMult = 0.72 + ratings.attractiveness / 250 + ratings.artQuality / 500;
+  const presentationMult = 0.6 + ratings.attractiveness / 180 + ratings.artQuality / 350;
   const district = districtOfBuilding(mus.buildingId);
   const districtMult = district?.id.includes('downtown') ? 1.12
     : district?.id.includes('historic') ? 1.08
@@ -1515,9 +1634,44 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
   const temporary = (s.temporaryExhibitions || []).filter(x =>
     mus.rooms.some(r => r.id === x.roomId)).reduce((n, x) =>
       n + 0.08 + x.marketing / 50000 + (x.quality + x.attractiveness) / 1600, 0);
-  return total * BUILDINGS[mus.buildingId].prestige * presentationMult
+  const raw = total * BUILDINGS[mus.buildingId].prestige * presentationMult
     * districtMult * (1 + Math.min(0.65, temporary));
+  return capVisitors(raw, buildingCapacity(mus));
 }
+
+/** how many visitors a day the building holds comfortably */
+export function buildingCapacity(mus: Museum): number {
+  const b = BUILDINGS[mus.buildingId];
+  // each open room adds a little circulation space
+  return Math.round(b.capacity * (0.8 + 0.2 * mus.rooms.filter(r => r.unlocked).length
+    / Math.max(1, mus.rooms.length)));
+}
+
+/** Demand beyond ~70% of capacity is squeezed: the building is
+ *  full and people are turned away. Outgrowing a building is the
+ *  signal to expand or move. */
+export function capVisitors(raw: number, cap: number): number {
+  const knee = cap * 0.7;
+  if (raw <= knee) return raw;
+  const room = cap - knee;
+  return knee + room * (1 - Math.exp(-(raw - knee) / room));
+}
+
+/** true when demand is being turned away at the door */
+export function atCapacity(s: GameState, mus?: Museum): boolean {
+  const m = mus || activeMuseum(s);
+  return dailyVisitors(s, m) >= buildingCapacity(m) * 0.85;
+}
+
+/** What visitors will happily pay: it rises with reputation, not
+ *  with crowd size, from about §6 for an unknown gallery to about
+ *  §25 for a world-famous one. */
+export function fairTicket(mus: Museum): number {
+  return 6 + Math.min(19, Math.sqrt(Math.max(0, mus.fame)) * 0.42);
+}
+
+/** per-visitor running cost: front of house, security, cleaning */
+export const COST_PER_VISITOR = 3.5;
 
 /** weekly visitors for a museum — six open days, shaped by
  *  ticket-price demand and weekly noise. */
@@ -1526,7 +1680,7 @@ export function computeVisitors(s: GameState, museum?: Museum): number {
   const perDay = dailyVisitors(s, mus);
   if (perDay <= 0) return 0;
 
-  const fairPrice = 7 + perDay / 70;
+  const fairPrice = fairTicket(mus);
   const ratio = mus.ticket / Math.max(1, fairPrice);
   let demandMult: number;
   if (ratio <= 1) demandMult = 1.12 - ratio * 0.12;     // 1.12 .. 1.0
@@ -1574,6 +1728,9 @@ export function computeExpenses(s: GameState): number {
     const roomSurcharge = Math.max(0, roomsOpen - 1) * 120;
     buildings += BUILDINGS[m.buildingId].maintenance + roomSurcharge;
   }
+  // busier museums cost more to run
+  const footfall = openMuseums(s).reduce((n, m) => n + dailyVisitors(s, m) * 6, 0);
+  buildings += Math.round(footfall * COST_PER_VISITOR);
   const gross = buildings + weeklyLoanFees(s);
   // a "steward" curator trims building upkeep — up to 30% off
   // (wages are never discounted).
@@ -1586,6 +1743,79 @@ export function computeExpenses(s: GameState): number {
 /** the player's combined weekly visitors across all museums */
 export function playerVisitorsEstimate(s: GameState): number {
   return totalVisitors(s);
+}
+
+/* --- reputation: where each museum is heading -------------
+   Each reputation moves toward a TARGET set by what the museum is
+   right now. It climbs quickly toward a higher target and fades
+   slowly when the museum is neglected, so one-off buzz from an
+   acquisition wears off unless the museum lives up to it. */
+const REP_RISE = 0.08;
+const REP_FADE = 0.025;
+
+export function reputationTargets(s: GameState, m: Museum): Reputation {
+  const rooms = m.rooms.filter(r => r.unlocked && r.items.length);
+  const ratings = rooms.map(r => roomRatings(s, r));
+  const avgQuality = ratings.length
+    ? ratings.reduce((n, r) => n + r.artQuality, 0) / ratings.length : 0;
+  const research = Object.values(s.styleResearch || {})
+    .reduce((n, r) => n + (r?.completed?.length || 0), 0);
+  const completed = m.rooms.filter(roomIsFull).length;
+  const prestige = museumQuality(s, m.id) * 0.45 + avgQuality * 0.3
+    + research * 3 + completed * 6 + museumCohesionBonus(m) * 0.5;
+  const popularity = dailyVisitors(s, m) * 0.4
+    + specialtySkill(s, 'publicist') * 12 + (m.adWeeksLeft > 0 ? 8 : 0);
+  const shownLoans = m.loans.filter(l => l.roomId !== null).length;
+  const patronage = (s.memberships || 0) * 0.12 / Math.max(1, openMuseums(s).length)
+    + m.sponsors.length * 14 + shownLoans * 5;
+  return { prestige, popularity, patronage };
+}
+
+function accrueReputation(s: GameState): void {
+  for (const m of s.museums) {
+    if (!m.open) continue;
+    const target = reputationTargets(s, m);
+    const cur = reputationOf(m);
+    for (const k of ['prestige', 'popularity', 'patronage'] as ReputationKind[]) {
+      const gap = target[k] - cur[k];
+      addReputation(m, k, gap * (gap > 0 ? REP_RISE : REP_FADE));
+    }
+  }
+}
+
+/* --- the cousins' week -------------------------------------
+   Each cousin earns income, sometimes buys a work from the market
+   (mostly in their own style, never one you own), and their fame
+   follows the strength of what they own — so a cousin who wins
+   the Legend you wanted really does climb past you. */
+function rivalWeek(s: GameState): void {
+  const taken = new Set([...s.owned, ...rivalOwnedIds(s)]);
+  s.rivals = s.rivals.map((r, i) => {
+    const t = RIVAL_TEMPER[i % RIVAL_TEMPER.length];
+    const income = t.income * Math.max(0.3, 1 - t.incomeDecay * s.week) + r.fame * 4;
+    let nr: RivalPlayer = { ...r, budget: (r.budget || 0) + income };
+    if (Math.random() < t.buyChance) {
+      const maxBand = nr.fame >= 600 ? 4 : nr.fame >= 120 ? 3 : 2;
+      const cap = (nr.budget || 0) * t.spendShare;
+      const fits = ARTIFACTS.filter(a => !taken.has(a.id)
+        && bandIndexForScore(a.score) <= maxBand && a.value <= cap);
+      const own = fits.filter(a => a.style === nr.style);
+      const pool = (own.length && Math.random() < 0.75 ? own : fits)
+        .sort((a, b) => b.score - a.score).slice(0, 6);
+      if (pool.length) {
+        const art = pool[randInt(0, pool.length - 1)];
+        nr = rivalAcquire(nr, art.id, Math.round(art.value * rand(0.85, 1.1)));
+        taken.add(art.id);
+      }
+    }
+    const quality = rivalQuality(nr);
+    const target = quality * 0.9 + 10;
+    const gap = target - nr.fame;
+    nr.fame = Math.max(0, Math.round(nr.fame + gap * (gap > 0 ? REP_RISE : REP_FADE)));
+    nr.quality = quality;
+    nr.visitors = Math.round(6 * (quality * 0.9 + nr.fame * 0.5));
+    return nr;
+  });
 }
 
 /* --- advance one week -------------------------------------- */
@@ -1606,18 +1836,6 @@ export function advanceWeek(s: GameState): GameState {
     } else {
       next.research = { ...next.research, weeksLeft: left };
     }
-  }
-
-  // sponsor weekly fame — each museum's sponsors lift its own fame;
-  // a publicist curator lifts every museum a little; and a wing of
-  // rooms sharing a style earns thematic-cohesion fame each week.
-  const pubBonus = specialtySkill(next, 'publicist') * 3;
-  for (const m of next.museums) {
-    if (!m.open) continue;
-    m.fame += pubBonus;
-    // wing cohesion is generous weekly but scaled down here so it
-    // accrues steadily rather than spiking
-    m.fame += Math.round(museumCohesionBonus(m) * 0.25);
   }
 
   // sponsors pay weekly, count down, and depart when the term ends
@@ -1690,45 +1908,15 @@ export function advanceWeek(s: GameState): GameState {
     next.candidates = makeCandidates();
   }
 
-  // the three rival cousins grow each week, each with a distinct
-  // temperament so the race feels alive but never hopeless:
-  //  - rival 0  "the rival": paces YOU — pulls ahead when you do
-  //             well, eases when you are behind. A true race.
-  //  - rival 1  "the slow one": a gentle, steady climb.
-  //  - rival 2  "the fast starter": climbs quickly early but
-  //             decelerates hard and effectively caps — they will
-  //             be second or third in the city, never the Louvre.
-  const playerFame = totalFame(next);
-  next.rivals = next.rivals.map((r, i) => {
-    let fg: number;
-    if (i === 0) {
-      // relative to the player: matches your pace, ahead/behind nudge
-      const lead = r.fame - playerFame;
-      fg = lead > 30 ? randInt(0, 1)
-        : lead > 0 ? randInt(1, 3)
-        : randInt(2, 4);
-    } else if (i === 1) {
-      // the slow, steady cousin
-      fg = randInt(1, 2);
-    } else {
-      // the fast starter — growth decays as their fame rises and
-      // is choked off near a soft cap (~140 fame: a strong second
-      // or third in the city, not a world museum)
-      const cap = 140;
-      const room = Math.max(0, cap - r.fame) / cap;   // 1 -> 0
-      fg = Math.round(randInt(2, 7) * room);
-    }
-    return {
-      ...r,
-      fame: r.fame + fg,
-      quality: r.quality + randInt(2, 6),
-      visitors: Math.max(0, r.visitors + randInt(-40, 110)),
-    };
-  });
+  // reputation drifts toward what each museum currently is
+  accrueReputation(next);
+  // the cousins earn, shop and grow from what they own
+  rivalWeek(next);
 
   // record a snapshot of the week that just finished, for the
   // Manage chart. Keep the most recent 12 (the chart shows 10).
-  next.history = [
+  const rep = totalReputation(next);
+  let history = [
     ...next.history,
     {
       week: s.week,
@@ -1737,8 +1925,24 @@ export function advanceWeek(s: GameState): GameState {
       fame: totalFame(next),
       quality: openMuseums(next).reduce(
         (a, m) => a + museumQuality(next, m.id), 0),
+      prestige: Math.round(rep.prestige),
+      popularity: Math.round(rep.popularity),
+      patronage: Math.round(rep.patronage),
+      funds: Math.round(next.funds),
+      revenue,
+      expenses,
+      rooms: openMuseums(next).reduce(
+        (a, m) => a + m.rooms.filter(r => r.unlocked).length, 0),
+      works: openMuseums(next).reduce((a, m) => a + placedCount(next, m.id), 0),
+      collectionValue: next.owned.reduce(
+        (a, id) => a + (ARTIFACT_BY_ID[id]?.value || 0), 0),
     },
-  ].slice(-12);
+  ];
+  // the whole career is kept: the last year week by week, and
+  // every fourth week before that
+  if (history.length > 52)
+    history = [...history.slice(0, -52).filter(h => h.week % 4 === 0), ...history.slice(-52)];
+  next.history = history;
 
   next.week += 1;
   next.events = [];

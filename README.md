@@ -1,6 +1,7 @@
 # Museum Wars
 
-A 50-week museum-management game. Found a museum, specialise in
+A museum-management game: grow a rented room into a world-renowned
+museum. See `GAME_DIRECTION.md` for the design direction and milestones. Found a museum, specialise in
 artistic fields, win artworks at real-time auctions, fill themed
 rooms, manage tickets and sponsors, and out-build a rival.
 
@@ -9,6 +10,12 @@ rooms, manage tickets and sponsors, and out-build a rival.
 ```bash
 npm install
 npm run dev
+```
+
+## Balance sim
+
+```bash
+npm run sim 104 5   # 5 headless careers of 104 weeks
 ```
 
 ## Deploy

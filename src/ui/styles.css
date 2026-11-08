@@ -1347,3 +1347,20 @@ button.nav-action.active { background:#5d8190; color:#fff; border-color:#314e5c;
 .bm-offer-row { display:flex; justify-content:space-between; gap:12px; margin:6px 0 9px; font-size:12px; }
 .bm-actions { grid-template-columns:repeat(4,minmax(0,1fr)); }
 @media(max-width:800px){.bm-intelligence{grid-template-columns:1fr}.bm-actions{grid-template-columns:repeat(2,1fr)}.unified-exhibition-editor .groom-slots{grid-template-columns:repeat(3,minmax(58px,90px))}}
+
+/* --- v0.8: reputation, capacity, headline lots, career card --- */
+.stat .stat-sub { font-size: 10px; color: #7a6a4f; margin-top: 2px; white-space: nowrap; }
+.director-bar .sim-next-btn { margin-right: 8px; border-radius: 9px; background: #fff8e8; color: #31485b; border: 2px solid #c6ab76; }
+.pixel-statusbar .at-capacity { color: #a3361f; font-weight: 700; }
+.headline-banner { margin: 6px 0; padding: 5px 8px; border-radius: 6px; background: #fbe7b0;
+  border: 2px solid #c99a2e; color: #6b4a0f; font-weight: 700; font-size: 13px; }
+.headline-pill { background: #c99a2e; color: #fff; }
+.then-now { width: 100%; border-collapse: collapse; font-size: 14px; }
+.then-now th, .then-now td { text-align: left; padding: 4px 6px; border-bottom: 1px solid #e3d3ad; }
+.then-now th { font-size: 11px; text-transform: uppercase; color: #7a6a4f; }
+@media (max-width: 640px) {
+  .director-bar { height: auto; flex-wrap: wrap; gap: 6px; }
+  .director-actions { width: 100%; gap: 6px; }
+  .director-actions button { flex: 1; padding: 8px 6px; font-size: 13px; }
+  .sim-next-btn { margin-right: 0; }
+}

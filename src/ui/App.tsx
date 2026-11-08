@@ -31,6 +31,7 @@ import * as Gala from '../engine/gala';
 import * as BM from '../engine/blackmarket';
 import * as Saves from '../engine/saves';
 import * as D from '../engine/director';
+import * as Sim from '../engine/sim';
 import { money } from '../engine/util';
 import { Thumb, RarityPill, ArtifactDetail } from './components';
 
@@ -200,6 +201,11 @@ function Game({
     setConfirmSkip(false);
     setState(D.progressDirectorSystems(E.advanceWeek(state)));
   };
+  const doSimToNext = () => {
+    const res = Sim.simToNextOpportunity(state);
+    setState(res.state);
+    flash(`${res.weeks} week${res.weeks === 1 ? '' : 's'} later — ${res.reason}`);
+  };
   const confirmSkipNo = () => {
     setConfirmSkip(false);
     setTab('opportunities');
@@ -288,7 +294,7 @@ function Game({
   return (
     <Shell state={state} tab={tab}
       setTab={t => { setOpenArtifactId(null); setConfirmSkip(false); setTab(t); }}
-      onExit={onExit} onNextWeek={doNextWeek}>
+      onExit={onExit} onNextWeek={doNextWeek} onSimToNext={doSimToNext}>
       {body}
       {toast && <div className="toast">{toast}</div>}
     </Shell>
@@ -299,10 +305,10 @@ function Game({
    SHELL — header (with Next Week), stat strip, tab bar
    ============================================================ */
 function Shell({
-  state, tab, setTab, hideTabs, onExit, onNextWeek, children,
+  state, tab, setTab, hideTabs, onExit, onNextWeek, onSimToNext, children,
 }: {
   state: GameState; tab: Tab; setTab: (t: Tab) => void;
-  hideTabs?: boolean; onExit: () => void; onNextWeek: () => void;
+  hideTabs?: boolean; onExit: () => void; onNextWeek: () => void; onSimToNext?: () => void;
   children: React.ReactNode;
 }) {
   const inGame = state.phase === 'playing';
@@ -335,6 +341,8 @@ function Shell({
         </div>
         {inGame && <div className="director-actions">
           {state.events.length > 0 && <button className="event-alert" onClick={() => setTab('opportunities')}>{state.events.length} opportunity{state.events.length === 1 ? '' : 'ies'}</button>}
+          {onSimToNext && <button className="ghost sim-next-btn" onClick={onSimToNext}
+            title="Run quiet weeks automatically and stop at the next notable lot, returning expedition or milestone">Sim to next opportunity ⏩</button>}
           <button className="next-week-btn" onClick={onNextWeek}>Open next week →</button>
         </div>}
       </header>
@@ -344,7 +352,8 @@ function Shell({
         <Stat label="Revenue" value={money(state.lastRevenue)} />
         <Stat label="Art quality" value={String(ratings.artQuality)} />
         <Stat label="Attractiveness" value={String(ratings.attractiveness)} />
-        <Stat label="World fame" value={String(E.totalFame(state))} />
+        <Stat label="Reputation" value={String(E.totalFame(state))}
+          sub={(() => { const r = E.totalReputation(state); return `Prestige ${Math.round(r.prestige)} · Popular ${Math.round(r.popularity)} · Patrons ${Math.round(r.patronage)}`; })()} />
       </div>
       <div className="director-layout">
         {!hideTabs && <aside className="director-nav">
@@ -362,8 +371,35 @@ function Shell({
     </div>
   );
 }
-function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="stat"><div className="label">{label}</div><div className="value">{value}</div></div>;
+/* "then vs now": the first week on record against the latest */
+function CareerSoFar({ state }: { state: GameState }) {
+  const h = state.history;
+  if (h.length < 2) return null;
+  const first = h[0];
+  const now = h[h.length - 1];
+  const rows: [string, number | undefined, number | undefined, (n: number) => string][] = [
+    ['Visitors per day', first.dailyVisitors, now.dailyVisitors, n => n.toLocaleString()],
+    ['Reputation', first.fame, now.fame, n => n.toLocaleString()],
+    ['Rooms open', first.rooms, now.rooms, n => String(n)],
+    ['Works on display', first.works, now.works, n => String(n)],
+    ['Collection value', first.collectionValue, now.collectionValue, n => money(n)],
+    ['Cash', first.funds, now.funds, n => money(n)],
+  ];
+  return (
+    <div className="panel career-so-far">
+      <h2>Career So Far<span className="sub">week {first.week} vs week {now.week}</span></h2>
+      <table className="then-now">
+        <thead><tr><th /><th>Then</th><th>Now</th></tr></thead>
+        <tbody>{rows.filter(r => r[1] !== undefined && r[2] !== undefined).map(([label, a, b, fmt]) =>
+          <tr key={label}><td>{label}</td><td>{fmt(a!)}</td><td><b>{fmt(b!)}</b></td></tr>)}</tbody>
+      </table>
+    </div>
+  );
+}
+
+function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return <div className="stat"><div className="label">{label}</div><div className="value">{value}</div>
+    {sub && <div className="stat-sub">{sub}</div>}</div>;
 }
 
 /* ============================================================
@@ -799,6 +835,7 @@ function GalleriesTab({
       </div>
 
       <MuseumFloor
+        state={state}
         museum={museum}
         buildingName={building.name}
         selectedRoom={selectedRoom}
@@ -1067,15 +1104,19 @@ function GalleriesTab({
 
 
 function MuseumFloor({
-  museum, buildingName, selectedRoom, onSelectRoom,
+  state, museum, buildingName, selectedRoom, onSelectRoom,
 }: {
+  state: GameState;
   museum: ReturnType<typeof E.activeMuseum>;
   buildingName: string;
   selectedRoom: number | null;
   onSelectRoom: (roomId: number, hallId: string) => void;
 }) {
   const openRooms = museum.rooms.filter(r => r.unlocked);
-  const visitors = Math.max(2, Math.min(14, Math.round(museum.fame / 5) + 2));
+  const perDay = Math.round(E.dailyVisitors(state, museum));
+  const capacity = E.buildingCapacity(museum);
+  const full = E.atCapacity(state, museum);
+  const visitors = Math.max(2, Math.min(14, Math.round(perDay / 15) + 2));
   return (
     <section className="pixel-museum panel" aria-label="Clickable museum floor">
       <div className="pixel-floor-head">
@@ -1125,7 +1166,9 @@ function MuseumFloor({
         </div>
       </div>
       <div className="pixel-statusbar">
-        <span>Today’s visitors: {Math.max(3, Math.round(museum.fame * 1.7))}</span>
+        <span className={full ? 'at-capacity' : ''}
+          title="Demand above about 70% of capacity is squeezed. A full building is the signal to open rooms or move.">
+          Visitors: {perDay}/day of {capacity} capacity{full ? ' — turning people away' : ''}</span>
         <span>{openRooms.length} galleries open</span>
         <span>{museum.rooms.flatMap(r => r.items).length} works displayed</span>
       </div>
@@ -1502,6 +1545,8 @@ function EventCard({
     <div className="event-card">
       <div className="event-kind">Auction</div>
       <div className="event-title">{ev.house}</div>
+      {ev.headlineId && <div className="headline-banner">★ Headline lot: {ARTIFACT_BY_ID[ev.headlineId].name}
+        {' '}({rarityForScore(ARTIFACT_BY_ID[ev.headlineId].score).name})</div>}
       <div className="event-body">
         {ev.lotIds.length} lots on offer — {ev.skewLabel}.
         {ev.fee > 0 ? ` Attendance fee ${money(ev.fee)}.` : ' Free to attend.'}
@@ -1520,6 +1565,7 @@ function EventCard({
                   {art.type} · {STYLES[art.style].name}
                 </span>
                 <span className={'pill ' + band.cls}>{band.name}</span>
+                {ev.headlineId === id && <span className="pill headline-pill">★ Headline lot</span>}
               </div>
             );
           })}
@@ -1706,7 +1752,7 @@ function EventInterior({
               <div className="au-sold-line">
                 {a.won
                   ? `You won ${art.name}.`
-                  : `${art.name} went to ${a.leader === 'rival' ? 'a rival' : 'no one'}.`}
+                  : `${art.name} went to ${a.leader === 'rival' ? a.rivalName : 'no one'}.`}
               </div>
               <button className="primary" onClick={onContinue}>
                 {isLast ? 'See Results' : 'Next Lot →'}
@@ -2729,11 +2775,13 @@ function BusinessTab({
       </div>
       <TemporaryExhibitionsPanel state={state} apply={apply} />
 
+      <CareerSoFar state={state} />
+
       <div className="panel">
         <h2>Museum Trends<span className="sub">the last 10 weeks</span></h2>
         <WeekChart label="Average Daily Visitors" color="#2f6485"
           data={last10.map(h => ({ week: h.week, value: h.dailyVisitors }))} />
-        <WeekChart label="Fame" color="#b06d1f"
+        <WeekChart label="Reputation" color="#b06d1f"
           data={last10.map(h => ({ week: h.week, value: h.fame }))} />
         <WeekChart label="Collection Quality" color="#4a6149"
           data={last10.map(h => ({ week: h.week, value: h.quality }))} />

@@ -17,7 +17,12 @@
    ============================================================ */
 import type { AuctionState, GameState } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
-import { rand, money } from './util';
+import { rand, money, pick } from './util';
+
+const COLLECTORS = [
+  'The Thorncrest Collection', 'A private collector', 'A telephone bidder',
+  'The Varga Foundation', 'A dealer in the second row',
+];
 
 export const AUCTION_CFG = {
   stepMs: 1100,         // each countdown number is held this long
@@ -44,8 +49,16 @@ export function startLot(state: GameState, artifactId: string): AuctionState {
   const estimate = lotEstimate(artifactId);
   const starsHere = state.expertise[art.style] || 0;
   const expertiseCut = 1 - Math.min(0.35, starsHere * 0.06);
-  const rivalCeiling = Math.round(estimate * rand(0.65, 1.35) * expertiseCut);
+  // a cousin who collects this style bids in person, up to what they
+  // can afford; otherwise the room is an anonymous collector
+  const cousins = state.rivals.filter(r => r.style === art.style && (r.budget || 0) > estimate * 0.5);
+  const cousin = cousins.length ? pick(cousins) : null;
+  let rivalCeiling = Math.round(estimate * rand(0.65, 1.35) * expertiseCut);
+  if (cousin) rivalCeiling = Math.round(Math.min(
+    (cousin.budget || 0) * 0.9, estimate * rand(0.85, 1.45) * expertiseCut));
   return {
+    rivalName: cousin ? cousin.name : pick(COLLECTORS),
+    rivalId: cousin ? cousin.id : null,
     artifactId, estimate,
     currentBid: Math.round(estimate * 0.12),
     leader: 'house',
@@ -87,7 +100,7 @@ function applyBid(
     count: AUCTION_CFG.countFrom,
     message: who === 'player'
       ? `You bid ${money(amount)} — anyone give more?`
-      : `The Thorncrest Collection bids ${money(amount)} — anyone give more?`,
+      : `${a.rivalName} bids ${money(amount)} — anyone give more?`,
   };
 }
 
@@ -98,7 +111,7 @@ function closeLot(a: AuctionState): AuctionState {
     over: true,
     won: playerWon,
     message: playerWon ? 'SOLD — to your museum!'
-      : a.leader === 'rival' ? 'SOLD — to a rival.'
+      : a.leader === 'rival' ? `SOLD — to ${a.rivalName}.`
       : 'The lot passed unsold.',
   };
 }

@@ -55,6 +55,7 @@ export interface BuildingDef {
   halls: HallDef[];
   moveCost: number;
   maintenance: number;   // weekly upkeep expense
+  capacity: number;      // comfortable daily visitors before crowds are turned away
 }
 
 /* --- districts --------------------------------------------- */
@@ -95,6 +96,7 @@ export interface Room {
   decorStyle?: 'classic' | 'dramatic' | 'minimal' | 'immersive';
   assignedCuratorId?: string | null;
   assignedResearcherId?: string | null;
+  completedOnce?: boolean;  // the one-off "room completed" fame bonus was paid
 }
 
 export type EventKind = 'auction' | 'donation';
@@ -106,6 +108,7 @@ export interface GameEvent {
   skewLabel: string;
   fee: number;
   lotIds: string[];
+  headlineId?: string;      // the season's guaranteed headline lot, if any
   attended?: boolean;
   lotIndex?: number;
   acquired?: string[];
@@ -126,6 +129,8 @@ export interface AuctionState {
   count: number;          // the countdown number currently shown (3,2,1)
   phaseMs: number;        // ms remaining in the current step/announce
   elapsedMs: number;
+  rivalName: string;      // who is bidding against you on this lot
+  rivalId: string | null; // a cousin's id when the bidder is a cousin
   rivalNextGap: number;   // ms of counting before the rival may bid
   sinceCountStart: number;
   over: boolean;
@@ -160,7 +165,19 @@ export interface RivalPlayer {
   quality: number;
   visitors: number;
   heirloomId?: string;     // the grandparent's work this cousin inherited
+  style?: StyleId;         // the style this cousin collects
+  collection?: string[];   // works this cousin has acquired
+  budget?: number;         // cash the cousin can spend on acquisitions
 }
+
+/** Fame split into the three audiences a museum answers to. The
+ *  museum's headline `fame` is always the sum of the three. */
+export interface Reputation {
+  prestige: number;    // critics and scholars: quality, research, completion
+  popularity: number;  // the public: visitors and attractive rooms
+  patronage: number;   // donors and collectors: members, sponsors, loans
+}
+export type ReputationKind = keyof Reputation;
 
 /* --- personnel --------------------------------------------- */
 /** the three staff roles a museum can hire for. */
@@ -236,6 +253,7 @@ export interface Museum {
   wingNames: Record<string, string>;
   adWeeksLeft: number;
   loans: Loan[];                  // works on loan, hanging here
+  reputation?: Reputation;        // breakdown of `fame`
   open: boolean;                  // false once the museum is closed
 }
 
@@ -310,15 +328,31 @@ export interface GameState {
   memberships?: number;
   museumRelations?: Record<string, number>;
   weeklyReport?: WeeklyReport | null;
+  market?: MarketPacing;
   phase: Phase;
 }
 
-/* --- weekly history (powers the Manage chart) -------------- */
+/** Keeps the rarity supply on a designed curve. */
+export interface MarketPacing {
+  weeksSinceRarePlus: number;   // weeks since a Rare-or-better lot was offered
+  lastHeadlineWeek: number;     // week the last headline lot appeared
+}
+
+/* --- career history (powers trends and "then vs now") ------ */
 export interface WeekSnapshot {
   week: number;
   dailyVisitors: number;          // average daily visitors that week
   fame: number;
   quality: number;
+  prestige?: number;
+  popularity?: number;
+  patronage?: number;
+  funds?: number;
+  revenue?: number;
+  expenses?: number;
+  rooms?: number;                 // open rooms across all museums
+  works?: number;                 // works on display
+  collectionValue?: number;       // catalogue value of everything owned
 }
 
 /* --- save slots -------------------------------------------- */

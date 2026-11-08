@@ -525,7 +525,7 @@ Each milestone is playable when it ships and has a **"done when"** check
 that the headless balance sim (`npm run sim`) or a play session can
 verify.
 
-### M1 (v0.8): Make it breathe
+### M1 (v0.8): Make it breathe ✅ shipped, see VERSION_8_NOTES.md
 **Scope:** R1–R7.
 - One rating model.
 - Weekly reputation: Prestige, Popularity, Patronage.
