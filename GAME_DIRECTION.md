@@ -682,6 +682,12 @@ Hall of Fame, and is a rival in the next career.
 **Done when:** a screenshot of any two careers looks clearly different,
 and every Rare+ work shows an image or a deliberate stylised card.
 
+### M7b: The revamp (done, v16)
+Four menus with sub-tabs, the This Week event queue with Go/Skip, a
+full-screen gallery, a calendar inside Acquire, and four card games:
+the gala deckbuilder, the push-your-luck dig, the dealer's evidence
+cards and auction viewing with bidder tells. See VERSION_16_NOTES.md.
+
 ### M8 (v1.5): Balance
 **Scope:** R44–R48.
 

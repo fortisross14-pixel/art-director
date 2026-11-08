@@ -1109,6 +1109,22 @@ function addLot(events: GameEvent[], h: AuctionHouseDef, id: string): GameEvent 
   return ev;
 }
 
+/** The sale schedule: the Old Quarter every week, Harringate & Cole
+ *  every other week, the Belvedere Rooms once every four. */
+export function houseSellsInWeek(houseId: string, week: number): boolean {
+  if (houseId === 'house1') return true;
+  if (houseId === 'house2') return week % 2 === 1;
+  return week % 4 === 2;
+}
+
+/** galas follow the social season: more often in some districts */
+export function galaInterval(s: GameState): number {
+  const chance = districtRules(activeMuseum(s)).galaChance + museumTypeDef(s).galaBonus
+    + (s.background === 'collector' ? 0.15 : 0);
+  return chance >= 0.6 ? 2 : chance >= 0.45 ? 3 : 4;
+}
+export const galaInWeek = (s: GameState, week: number) => week % galaInterval(s) === 0;
+
 /** Each week, every JOINED house may hold a sale. Updates
  *  `s.market` (the pacing counters) in place, so call it on a
  *  freshly forked state. */
@@ -1116,9 +1132,8 @@ export function rollEvents(s: GameState): GameEvent[] {
   const events: GameEvent[] = [];
   for (const h of joinedHouses(s)) {
     if (events.length >= START.maxEventsPerWeek) break;
-    // the humble house holds sales often; grander houses less so
-    const chance = h.id === 'house1' ? 0.8 : h.id === 'house2' ? 0.6 : 0.45;
-    if (Math.random() <= chance) {
+    // houses sell on a fixed schedule, so the calendar can show it
+    if (houseSellsInWeek(h.id, s.week)) {
       const ev = buildHouseAuction(s, h);
       if (ev) events.push(ev);
     }
@@ -1707,7 +1722,7 @@ export const EXPEDITION_CRATE: Record<ExpeditionTier, CrateTier> = {
 /** how many cards a dig board result is worth */
 export function expeditionCardCount(result: { finds: number; shards: number; ejected: boolean }): number {
   if (result.ejected) return 0;
-  return Math.max(0, Math.min(6, result.finds + Math.floor(result.shards / 4)));
+  return Math.max(0, Math.min(6, result.finds + Math.floor(result.shards / 3)));
 }
 
 /** Resolve a played-out expedition. The dig board decides how many
@@ -2272,6 +2287,18 @@ export function upgradeRoom(s: GameState, roomId: number, kind: RoomUpgrade): Re
   return { state: next };
 }
 
+/** name a gallery (empty name restores the default) */
+export function renameRoom(s: GameState, roomId: number, name: string): GameState {
+  const next = fork(s);
+  const m = activeMuseum(next);
+  m.rooms = m.rooms.map(r => r.id === roomId ? { ...r, name: name.slice(0, 40) || undefined } : r);
+  return next;
+}
+/** a gallery's display name */
+export function roomName(room: Room): string {
+  return room.name || (room.theme ? `${STYLES[room.theme].name} Gallery` : `Room ${room.id + 1}`);
+}
+
 /** One "Presentation tier" step: upgrades whichever of decoration,
  *  interpretation and comfort is lowest. The simplified knob the
  *  revamped UI will expose instead of three separate tracks. */
@@ -2765,8 +2792,7 @@ export function advanceWeek(s: GameState): GameState {
   next.events = rollEvents(next);
   rollEstateOffer(next);
   // a gala appears some weeks — a chance to court collectors for loans
-  next.galaPending = Math.random() < districtRules(activeMuseum(next)).galaChance
-    + museumTypeDef(next).galaBonus + (next.background === 'collector' ? 0.15 : 0);
+  next.galaPending = galaInWeek(next, next.week);
   if (next.galaPending)
     next = logged(next, { kind: 'note',
       text: 'A society gala is being held this week — a chance to court '

@@ -68,7 +68,7 @@ export function SeasonPanel({ state, setState, onSimSeason, apply }: {
   );
 }
 
-function LeagueTable({ state }: { state: GameState }) {
+export function LeagueTable({ state }: { state: GameState }) {
   const league = state.league || 'city';
   const rows = S.leagueTable(state, league);
   const me = rows.findIndex(r => r.you);
@@ -85,7 +85,7 @@ function LeagueTable({ state }: { state: GameState }) {
   );
 }
 
-function RetireButton({ state, setState }: { state: GameState; setState: (s: GameState) => void }) {
+export function RetireButton({ state, setState }: { state: GameState; setState: (s: GameState) => void }) {
   const [sure, setSure] = useState(false);
   const left = Math.max(0, L.CAREER_YEARS - L.careerYears(state));
   return (
@@ -100,15 +100,15 @@ function RetireButton({ state, setState }: { state: GameState; setState: (s: Gam
 
 /* --- the 20-point budget ------------------------------------ */
 export const BUDGET_POINTS = 20;
-const fromPlan = (plan: BudgetPlan): Record<string, number> => {
+export const fromPlan = (plan: BudgetPlan): Record<string, number> => {
   const p: Record<string, number> = {};
   for (const k of S.BUDGET_LINES) p[k] = Math.round((plan[k] || 0) / (100 / BUDGET_POINTS));
   return p;
 };
-const toPlan = (pts: Record<string, number>): BudgetPlan =>
+export const toPlan = (pts: Record<string, number>): BudgetPlan =>
   Object.fromEntries(S.BUDGET_LINES.map(k => [k, (pts[k] || 0) * (100 / BUDGET_POINTS)])) as BudgetPlan;
 
-function PointsPicker({ state, pts, setPts }: {
+export function PointsPicker({ state, pts, setPts }: {
   state: GameState; pts: Record<string, number>; setPts: (p: Record<string, number>) => void;
 }) {
   const used = S.BUDGET_LINES.reduce((n, k) => n + (pts[k] || 0), 0);
@@ -154,7 +154,7 @@ function PointsPicker({ state, pts, setPts }: {
   );
 }
 
-function ReviewBlock({ state }: { state: GameState }) {
+export function ReviewBlock({ state }: { state: GameState }) {
   const r = state.lastReview!;
   return (
     <>

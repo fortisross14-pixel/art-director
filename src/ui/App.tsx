@@ -93,7 +93,7 @@ export default function App() {
 /* ============================================================
    HOME — three save slots
    ============================================================ */
-function Home({
+export function Home({
   onNew, onLoad,
 }: {
   onNew: (slot: number) => void;
@@ -464,7 +464,7 @@ function HubIcon({ hub }: { hub: Hub }) {
 }
 
 /* "then vs now": the first week on record against the latest */
-function CareerSoFar({ state }: { state: GameState }) {
+export function CareerSoFar({ state }: { state: GameState }) {
   const h = state.history;
   if (h.length < 2) return null;
   const first = h[0];
@@ -493,7 +493,7 @@ function CareerSoFar({ state }: { state: GameState }) {
 /* ============================================================
    ONBOARDING — choose style
    ============================================================ */
-function ChooseStyle({
+export function ChooseStyle({
   onFound, onExit,
 }: {
   onFound: (bg: Background, district: string, style: StyleId | null, artId?: string, allChoices?: string[]) => void;
@@ -581,7 +581,7 @@ function ChooseStyle({
 /* ============================================================
    ONBOARDING — name the gallery + set ticket price
    ============================================================ */
-function NameGallery({
+export function NameGallery({
   state, onConfirm,
 }: {
   state: GameState;
@@ -650,7 +650,7 @@ function NameGallery({
 /* ============================================================
    MAP TAB — your museums + the city's buildings
    ============================================================ */
-function MapTab({
+export function MapTab({
   state, apply, setState, flash, goGalleries,
 }: {
   state: GameState;
@@ -1703,7 +1703,7 @@ function EventCard({
   );
 }
 
-function EventInterior({
+export function EventInterior({
   state, setState, flash, goGalleries,
 }: {
   state: GameState;
@@ -1838,9 +1838,10 @@ function EventInterior({
           const lit = b.lastBidMs !== undefined && b.lastBidMs < 900;
           const leads = a.leaderId === b.id;
           return (
-            <div key={b.id} className={'paddle' + (b.out ? ' out' : '') + (lit ? ' lit' : '') + (leads ? ' leads' : '') + (b.kind === 'phone' ? ' phone' : '')}>
+            <div key={b.id} className={'paddle' + (b.out ? ' out' : '') + (lit ? ' lit' : '') + (leads ? ' leads' : '') + (b.kind === 'phone' ? ' phone' : '') + (Auc.isNervous(a, b) ? ' nervous' : '')}>
               <span className="paddle-disc">{b.kind === 'phone' ? '☎' : b.name.replace(/^(The|A|Mme\.|Mr\.|Dr\.|Signor|Baroness|Cousin) /, '').charAt(0)}</span>
               <span className="paddle-name">{b.name}</span>
+              {Auc.isNervous(a, b) && !a.over && <span className="paddle-mood">sweating…</span>}
             </div>
           );
         })}
@@ -1857,7 +1858,13 @@ function EventInterior({
       </div>
 
       {a.mode === 'intro' ? (
-        <button className="big room-begin" onClick={onBegin}>Begin the bidding</button>
+        <div className="room-intro">
+          {!a.viewed && <button className="ghost" onClick={() => {
+            const res = Auc.viewLot(state);
+            if (res.error) flash(res.error); else setState(res.state);
+          }}>View the lot first · 1 initiative</button>}
+          <button className="big room-begin" onClick={onBegin}>Begin the bidding</button>
+        </div>
       ) : !a.over ? (
         <div className="room-controls">
           <button className="room-bid" disabled={!canBid} onClick={onBid}>
@@ -1887,7 +1894,7 @@ function EventInterior({
 }
 
 /* a detail card for a won/found item — used on results screens */
-function ItemCard({ artifact }: { artifact: typeof ARTIFACT_BY_ID[string] }) {
+export function ItemCard({ artifact }: { artifact: typeof ARTIFACT_BY_ID[string] }) {
   const band = rarityForScore(artifact.score);
   return (
     <div className="item-card" style={{ borderTopColor: band.hex }}>
@@ -1912,7 +1919,7 @@ function ItemCard({ artifact }: { artifact: typeof ARTIFACT_BY_ID[string] }) {
 /* ============================================================
    SPECIALTIES (STYLES) TAB
    ============================================================ */
-function SpecialtiesTab({ state, apply }: { state: GameState; apply: (r: { state: GameState; error?: string }) => void; }) {
+export function SpecialtiesTab({ state, apply }: { state: GameState; apply: (r: { state: GameState; error?: string }) => void; }) {
   const [selected, setSelected] = useState<StyleId>(state.specialties[0] || 'renaissance');
   const known = state.specialties.includes(selected);
   const rs = state.styleResearch?.[selected];
@@ -1939,7 +1946,7 @@ function specInfo(m: { role: string; specialty: string }) {
     || { label: E.ROLE_NAME[m.role as 'curator'], effect: '' };
 }
 
-function PersonnelTab({
+export function PersonnelTab({
   state, apply,
 }: {
   state: GameState;
@@ -2406,7 +2413,7 @@ function BusinessTab({
 }
 
 /* the Sponsors panel — court term-based building & wing sponsors */
-function TemporaryExhibitionsPanel({state,apply}:{state:GameState;apply:(r:{state:GameState;error?:string})=>void}) {
+export function TemporaryExhibitionsPanel({state,apply}:{state:GameState;apply:(r:{state:GameState;error?:string})=>void}) {
   const [roomId,setRoomId]=useState<number>(E.activeMuseum(state).rooms.find(r=>r.unlocked&&r.items.length>=2)?.id ?? -1);
   const [name,setName]=useState(''); const [weeks,setWeeks]=useState(6); const [marketing,setMarketing]=useState(2500); const [surcharge,setSurcharge]=useState(4);
   const eligible=E.activeMuseum(state).rooms.filter(r=>r.unlocked&&r.items.length>=2&&r.theme);
@@ -2416,7 +2423,7 @@ function TemporaryExhibitionsPanel({state,apply}:{state:GameState;apply:(r:{stat
   </div>;
 }
 
-function SponsorsPanel({
+export function SponsorsPanel({
   state, apply, museum, building,
 }: {
   state: GameState;
@@ -2553,7 +2560,7 @@ type RankRec = {
   you?: boolean;
 };
 
-function CompetitorsTab({ state }: { state: GameState; apply: (r: {state: GameState; error?: string}) => void }) {
+export function CompetitorsTab({ state }: { state: GameState; apply: (r: {state: GameState; error?: string}) => void }) {
   const [scope, setScope] = useState<'city' | 'global'>('city');
   const [metric, setMetric] = useState<'fame' | 'quality' | 'visitors'>('fame');
 
@@ -2645,7 +2652,7 @@ function CompetitorsTab({ state }: { state: GameState; apply: (r: {state: GameSt
 /* ============================================================
    CODEX TAB — every artwork; unowned shown locked
    ============================================================ */
-function CodexTab({
+export function CodexTab({
   state, apply, onArtifact,
 }: {
   state: GameState;

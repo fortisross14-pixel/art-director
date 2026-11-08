@@ -98,6 +98,7 @@ export interface Room {
   assignedCuratorId?: string | null;
   assignedResearcherId?: string | null;
   completedOnce?: boolean;  // the one-off "room completed" fame bonus was paid
+  name?: string;            // the director's name for the gallery
 }
 
 export type EventKind = 'auction' | 'donation';
@@ -148,6 +149,8 @@ export interface AuctionState {
   leaderId?: string | null;
   /** id of the bidder who will bid next this count */
   nextBidderId?: string | null;
+  /** the player paid for a viewing of this lot */
+  viewed?: boolean;
 }
 
 /** one paddle in the room */

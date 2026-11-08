@@ -240,3 +240,23 @@ export function playerBid(state: GameState, jump = false): { auction: AuctionSta
   }
   return { auction: applyBid(pre, 'player', amount, note) };
 }
+
+/** A viewing before the bidding: your people look the work over and
+ *  the estimate tightens to within about ten percent of the truth.
+ *  Costs one initiative. Only before the lot opens. */
+export function viewLot(state: GameState): { state: GameState; error?: string } {
+  const a = state.auction;
+  if (!a || a.mode !== 'intro') return { state, error: 'Viewings happen before the bidding opens.' };
+  if (a.viewed) return { state, error: 'You have already viewed this lot.' };
+  if (state.season && state.season.initiativesLeft <= 0) return { state, error: 'No initiatives left this season.' };
+  const v = a.value || a.estimate;
+  const centre = v * rand(0.95, 1.05);
+  const auction = { ...a, estLow: nice(centre * 0.9), estHigh: nice(centre * 1.1), viewed: true,
+    message: 'Your people look it over: the estimate tightens.' };
+  const season = state.season ? { ...state.season, initiativesLeft: state.season.initiativesLeft - 1 } : state.season;
+  return { state: { ...state, auction, season } };
+}
+
+/** a bidder close to their limit shows it */
+export const isNervous = (a: AuctionState, b: AuctionBidder) =>
+  !b.out && b.active && b.id !== a.leaderId && (b.max - a.currentBid) / Math.max(1, b.max) < 0.15;
