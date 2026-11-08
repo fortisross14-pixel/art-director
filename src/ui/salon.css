@@ -628,3 +628,51 @@ body.salon { padding-bottom: 0; }
 .room-verdict.bad { border-color: var(--s-bad); background: rgba(229,154,122,0.08); }
 .room-verdict.bad .verdict-label { color: var(--s-bad); }
 .salon .room-verdict button { margin-top: 6px; min-width: 160px; }
+
+/* --- the dig (v1.5) ------------------------------------------- */
+.dig-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.dig-crate { display: flex; flex-direction: column; align-items: center; padding: 6px 12px; border: 1px solid var(--s-gold-deep); background: var(--s-deep); min-width: 72px; }
+.dig-crate b { font-family: var(--s-serif); font-size: 32px; line-height: 1; color: var(--s-gold-bright); animation: bump 0.4s ease; }
+.dig-crate span { font-size: 10.5px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.dig-frags { display: flex; gap: 2px; margin-top: 4px; }
+.dig-frags i { width: 9px; height: 9px; transform: rotate(45deg); border: 1px solid var(--s-gold-deep); display: block; }
+.dig-frags i.on { background: var(--s-gold); }
+.dig-gauges { display: flex; justify-content: space-between; margin: 12px 0 10px; color: var(--s-gold); }
+.dig-gauges span { display: flex; gap: 3px; flex-wrap: wrap; }
+.dig-gauges i { font-style: normal; display: block; }
+.dig-helmets i.lost { color: var(--s-line); }
+.dig-grid2 { display: grid; gap: 4px; touch-action: manipulation; }
+.dig-grid2.size-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.dig-grid2.size-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.salon .dtile {
+  aspect-ratio: 1; min-height: 0; padding: 0; border-radius: 3px; border: 1px solid #5A3A26;
+  background: radial-gradient(circle at 30% 25%, #6B4A30, #4A3020 70%); color: var(--s-ivory);
+  font-family: var(--s-serif); font-size: 24px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 4px;
+  box-shadow: inset 0 -3px 0 rgba(0,0,0,0.35);
+}
+.salon .dtile:hover:not(:disabled) { background: radial-gradient(circle at 30% 25%, #7A5636, #533624 70%); border-color: var(--s-gold-deep); }
+.salon .dtile:disabled { opacity: 1; }
+.salon .dtile.open { background: #24130F; border-color: #3A2420; box-shadow: inset 0 2px 6px rgba(0,0,0,0.6); }
+.salon .dtile.fresh { animation: dug 0.35s ease both; }
+.salon .dtile .n-find, .dig-legend2 .n-find { color: var(--s-gold-bright); font-size: 22px; }
+.salon .dtile .n-haz, .dig-legend2 .n-haz { color: #E26B55; font-size: 18px; }
+.salon .dtile.relic { background: radial-gradient(circle, #6A5420, #2A1A0E); color: var(--s-gold-bright); text-shadow: 0 0 12px rgba(255,214,110,0.8); }
+.salon .dtile.relic.fresh { animation: dug 0.35s ease both, sparkle 1s 0.2s ease; }
+.salon .dtile.frag { color: #B9D3F0; }
+.salon .dtile.frag small { font-family: var(--s-sans); font-size: 11px; }
+.salon .dtile.hazard { background: #4A1612; color: #FF8A70; }
+.salon .dtile.seen { background: radial-gradient(circle at 30% 25%, #5C4632, #3E2C1E 70%); color: rgba(243,233,210,0.45); font-size: 18px; }
+.dig-grid2.surveying .dtile:not(.open) { outline: 1px dashed var(--s-gold); outline-offset: -4px; }
+.dig-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 8px; margin-top: 12px; }
+.salon .dig-actions button { min-height: 54px; }
+.dig-result { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 14px; animation: unveil 0.5s ease both; }
+.dig-result b { font-family: var(--s-serif); font-size: 26px; color: var(--s-gold-bright); }
+.dig-result.lost b { color: var(--s-bad); }
+.dig-legend2 { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: center; margin-top: 12px; font-size: 11.5px; color: var(--s-muted); }
+.dig-legend2 b { font-family: var(--s-serif); }
+.dig-screen.shake-0, .dig-screen.shake-1 { animation: shake 0.45s ease; }
+.dig-screen.shake-1 { animation-name: shake2; }
+@keyframes dug { from { transform: scale(0.6); opacity: 0.2; } }
+@keyframes sparkle { 0%, 100% { box-shadow: none; } 40% { box-shadow: 0 0 22px 6px rgba(255,214,110,0.7); } }
+@keyframes shake { 20% { transform: translateX(-8px); } 40% { transform: translateX(8px); } 60% { transform: translateX(-5px); } 80% { transform: translateX(4px); } }
+@keyframes shake2 { 20% { transform: translateX(8px); } 40% { transform: translateX(-8px); } 60% { transform: translateX(5px); } 80% { transform: translateX(-4px); } }

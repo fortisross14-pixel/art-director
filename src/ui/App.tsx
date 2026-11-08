@@ -2043,117 +2043,82 @@ function ExpeditionGame({
   const bonusTolerance = E.specialtySkill(state, 'veteran') >= 2 ? 1 : 0;
   const [board, setBoard] = useState<Dig.DigBoard>(
     () => Dig.makeBoard(def, bonusDigs, bonusTolerance));
-  const [started, setStarted] = useState(false);
+  const [surveying, setSurveying] = useState(false);
+  const [shake, setShake] = useState(0);
 
-  // finish: the board result decides how many cards the crate holds
   const collect = () => {
     const res = Dig.boardResult(board);
     onFinish({ finds: res.artifacts, shards: res.shards, ejected: board.ejected });
   };
   const crateTier = E.EXPEDITION_CRATE[expedition.tier];
-  const cardsNow = E.expeditionCardCount({
-    finds: board.artifactsFound, shards: board.shardsBanked, ejected: board.ejected });
+  const cardsNow = E.expeditionCardCount({ finds: board.artifactsFound, shards: board.shardsBanked, ejected: false });
+  const fragments = board.shardsBanked % 4;
+  const tap = (i: number) => {
+    if (surveying) { setBoard(Dig.surveyArea(board, i)); setSurveying(false); return; }
+    const next = Dig.revealTile(board, i);
+    if (next.bombsHit > board.bombsHit) setShake(x => x + 1);
+    setBoard(next);
+  };
+  const helmets = board.bombTolerance - board.bombsHit;
 
-  // --- intro -------------------------------------------------
-  if (!started) {
-    return (
-      <div className="panel">
-        <h2>{def.name}
-          <span className="sub">{STYLES[expedition.style].name} · the dig</span></h2>
-        <p className="empty-note">
-          Your team has reached the site. Reveal tiles to dig — a
-          {' '}<b>clue</b> means a find sits next to it, a <b>danger</b> mark
-          means a hazard does. You have <b>{def.digs} digs</b>.
-          {def.bombTolerance === 1
-            ? ' A single hazard ends the expedition with nothing.'
-            : ` Hit ${def.bombTolerance} hazards and the expedition collapses.`}
-          {' '}You may stop and bank your findings at any time.
-        </p>
-        <p className="empty-note">
-          Every ★ find is a card, and every 4 ◈ shards make another card, up to 6.
-          {' '}Whatever you bank comes home as a <b>{crateTier}</b> crate of
-          {' '}{STYLES[expedition.style].name}-leaning finds, opened card by card.
-        </p>
-        <div className="divider" />
-        <button onClick={() => setStarted(true)}>Begin the Dig</button>
-      </div>
-    );
-  }
-
-  // --- done --------------------------------------------------
-  if (board.finished) {
-    const res = Dig.boardResult(board);
-    const gotSomething = res.artifacts > 0 || res.shards > 0;
-    return (
-      <div className="panel">
-        <h2>{board.ejected ? 'Expedition Lost' : 'Expedition Complete'}
-          <span className="sub">
-            {board.ejected ? 'the site claimed everything'
-              : gotSomething ? 'findings secured' : 'nothing found'}
-          </span>
-        </h2>
-        {board.ejected ? (
-          <p className="empty-note">
-            One hazard too many — the dig collapsed and the team escaped with
-            nothing. The findings are lost.
-          </p>
-        ) : (
-          <p className="empty-note">
-            {cardsNow > 0
-              ? <>The team packs a <b>{crateTier} crate of {cardsNow} card{cardsNow === 1 ? '' : 's'}</b>. Open it to see what you found.</>
-              : 'Nothing worth crating came out of the ground this time.'}
-          </p>
-        )}
-        <div className="divider" />
-        <button onClick={collect}>{!board.ejected && cardsNow > 0 ? 'Open the crate →' : 'Continue'}</button>
-      </div>
-    );
-  }
-
-  // --- the board ---------------------------------------------
   return (
-    <div className="panel">
-      <h2>{def.name}
-        <span className="sub">{board.digsLeft} dig(s) left</span></h2>
-      <div className="dig-status">
-        <span>Hazards hit: {board.bombsHit}/{board.bombTolerance}</span>
-        <span>Finds: {board.artifactsFound} ★ · {board.shardsBanked} ◈</span>
-        <span>Crate so far: {cardsNow} card{cardsNow === 1 ? '' : 's'}</span>
+    <div className={'panel dig-screen' + (shake ? ' shake-' + (shake % 2) : '')}>
+      <div className="dig-top">
+        <div>
+          <div className="salon-kicker">{STYLES[expedition.style].name} · {crateTier} crate</div>
+          <h2 style={{ margin: 0 }}>{def.name}</h2>
+        </div>
+        <div className="dig-crate" aria-label={`${cardsNow} cards in the crate`}>
+          <b key={cardsNow}>{cardsNow}</b><span>cards</span>
+          <span className="dig-frags">{Array.from({ length: 4 }, (_, i) => <i key={i} className={i < fragments ? 'on' : ''} />)}</span>
+        </div>
       </div>
-      <div className={'dig-grid size-' + board.size}>
-        {board.tiles.map((tile, i) => {
-          const out = !tile.revealed;
-          let face = '';
-          let cls = 'dig-tile';
-          if (tile.revealed) {
+      <div className="dig-gauges">
+        <span className="dig-shovels" aria-label={`${board.digsLeft} digs left`}>
+          {Array.from({ length: board.digsLeft }, (_, i) => <i key={i}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M14 4l6 6" /><path d="M17 7L5 19" /><path d="M10 3c4 0 8 3 11 8" /></svg></i>)}</span>
+        <span className="dig-helmets" aria-label={`${helmets} helmets left`}>
+          {Array.from({ length: board.bombTolerance }, (_, i) => <i key={i} className={i < helmets ? '' : 'lost'}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 16a8 8 0 0 1 16 0" /><path d="M2 16h20" /><path d="M12 8v4" /></svg></i>)}</span>
+      </div>
+
+      <div className={'dig-grid2 size-' + board.size + (surveying ? ' surveying' : '')}>
+        {board.tiles.map((t, i) => {
+          const fresh = board.lastRevealed.includes(i);
+          let cls = 'dtile';
+          let face: React.ReactNode = null;
+          if (t.revealed) {
             cls += ' open';
-            if (tile.kind === 'bomb') { face = '✸'; cls += ' bomb'; }
-            else if (tile.kind === 'danger') { face = '⚠'; cls += ' danger'; }
-            else if (tile.kind === 'clue') { face = '◆'; cls += ' clue'; }
-            else if (tile.kind === 'find') {
-              face = tile.findKind === 'artifact' ? '★' : '◈';
-              cls += ' find';
-            } else { cls += ' empty'; }
+            if (t.kind === 'bomb') { cls += ' hazard'; face = '✸'; }
+            else if (t.kind === 'find') { cls += t.findKind === 'artifact' ? ' relic' : ' frag'; face = t.findKind === 'artifact' ? '★' : <>◈<small>{t.shardAmount}</small></>; }
+            else face = <>{t.nearFinds > 0 && <span className="n-find">{t.nearFinds}</span>}{t.nearHazards > 0 && <span className="n-haz">{t.nearHazards}</span>}</>;
+          } else if (t.surveyed) {
+            cls += ' seen';
+            face = t.kind === 'bomb' ? '✸' : t.kind === 'find' ? (t.findKind === 'artifact' ? '★' : '◈') : '';
           }
+          if (fresh) cls += ' fresh';
           return (
-            <button key={i} className={cls}
-              disabled={tile.revealed || board.digsLeft <= 0}
-              onClick={() => setBoard(Dig.revealTile(board, i))}>
-              {out ? '' : face}
-            </button>
+            <button key={i} className={cls} style={fresh ? { animationDelay: `${Math.min(board.lastRevealed.indexOf(i), 12) * 0.03}s` } : undefined}
+              disabled={t.revealed || board.finished} onClick={() => tap(i)}
+              aria-label={t.revealed ? 'dug' : 'undug ground'}>{face}</button>
           );
         })}
       </div>
-      <div className="dig-legend">
-        <span>◆ clue — a find is adjacent</span>
-        <span>⚠ danger — a hazard is adjacent</span>
-        <span>★◈ find</span>
-        <span>✸ hazard</span>
+
+      {!board.finished ? (
+        <div className="dig-actions">
+          <button className={surveying ? '' : 'ghost'} disabled={board.surveysLeft <= 0} onClick={() => setSurveying(v => !v)}>
+            {surveying ? 'Tap an area…' : `Survey ×${board.surveysLeft}`}</button>
+          <button onClick={() => setBoard(Dig.bankBoard(board))} disabled={!board.started}>Bank &amp; open crate</button>
+        </div>
+      ) : (
+        <div className={'dig-result' + (board.ejected ? ' lost' : '')}>
+          <b>{board.ejected ? 'The site collapsed' : cardsNow ? `${cardsNow} card${cardsNow === 1 ? '' : 's'} for the crate` : 'Nothing worth crating'}</b>
+          <button onClick={collect}>{!board.ejected && cardsNow > 0 ? 'Open the crate →' : 'Continue'}</button>
+        </div>
+      )}
+      <div className="dig-legend2">
+        <span><b className="n-find">2</b> finds nearby</span><span><b className="n-haz">1</b> hazards nearby</span>
+        <span>★ relic = 1 card</span><span>◈ ×4 = 1 card</span>
       </div>
-      <div className="divider" />
-      <button className="ghost" onClick={() => setBoard(Dig.bankBoard(board))}>
-        Stop &amp; Bank Findings
-      </button>
     </div>
   );
 }
