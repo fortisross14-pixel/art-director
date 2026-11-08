@@ -643,6 +643,19 @@ Hall of Fame, and is a rival in the next career.
   - *Modern Institution:* white cube, a strong grid, one accent colour,
     museum-signage typography.
   - *Cosy Tycoon:* the current chunky pixel-dollhouse look, polished.
+- **Touch first, no typing:**
+  - Every amount is a tap. The season budget is **20 points** spread
+    across the five lines with big +/− buttons, not typed percentages.
+  - Ticket price uses 4 presets.
+  - Initiatives are tokens you spend.
+  - Every target is at least 48 px.
+  - The main action ("Sim to next") is a full-width button in thumb
+    reach, above a 4-hub bottom bar.
+- **Three proposed identities** (mock-ups on the shared design canvas):
+  - **A: Gilded Salon.**
+  - **B: Modern Institution.**
+  - **C: Cosy Tycoon.**
+  - Each shows the museum home, the crate reveal and the season plan.
 - **Navigation** redesigned with the chosen identity: the 4 hubs, a phone
   bottom bar, and clear "what needs me now" badges.
 - **Motion and depth:**
