@@ -14,6 +14,8 @@
    ============================================================ */
 import { useState, useEffect, useCallback } from 'react';
 import './styles.css';
+import './salon.css';
+import { AnnualReportShow, ReviewShow } from './present';
 import type {
   GameState, StyleId, Room, SaveSlot, GameEvent, Expedition, Background,
 } from '../data/types';
@@ -46,12 +48,23 @@ import { Thumb, RarityPill, ArtifactDetail } from './components';
 
 type Tab =
   | 'floor' | 'collection' | 'opportunities' | 'exploration'
-  | 'staff' | 'research' | 'finance' | 'city' | 'museums' | 'catalogue' | 'artists';
+  | 'staff' | 'research' | 'finance' | 'city' | 'museums' | 'catalogue' | 'artists' | 'season';
+
+/* the four hubs of the bottom bar, and the sub-tabs inside each */
+type Hub = 'museum' | 'acquire' | 'institution' | 'world';
+const HUBS: { id: Hub; label: string; tabs: [Tab, string][] }[] = [
+  { id: 'museum', label: 'Museum', tabs: [['floor', 'Floor'], ['season', 'Season'], ['collection', 'Vault'], ['catalogue', 'Catalogue']] },
+  { id: 'acquire', label: 'Acquire', tabs: [['opportunities', 'Market'], ['exploration', 'Digs'], ['artists', 'Artists']] },
+  { id: 'institution', label: 'Institution', tabs: [['staff', 'Staff'], ['research', 'Research'], ['finance', 'Finance']] },
+  { id: 'world', label: 'World', tabs: [['city', 'City'], ['museums', 'Rankings']] },
+];
+const hubOf = (t: Tab): Hub => HUBS.find(h => h.tabs.some(([id]) => id === t))?.id || 'museum';
 
 /* ============================================================
    ROOT — owns the active slot, routes home vs in-game
    ============================================================ */
 export default function App() {
+  useEffect(() => { document.body.classList.add('salon'); }, []);
   const [slot, setSlot] = useState<number | null>(null);
   const [state, setState] = useState<GameState | null>(null);
 
@@ -91,8 +104,8 @@ function Home({
 
   return (
     <div className="home-wrap">
-      <div className="home-title">Museum Wars</div>
-      <div className="home-sub">Build a museum to rival the world's greatest.</div>
+      <div className="home-title">Art Director</div>
+      <div className="home-sub">From a rented room to a world-renowned museum</div>
       {slots.map((rec, i) => (
         <div key={i} className={'slot-card' + (rec ? '' : ' empty')}>
           <div className="slot-head">
@@ -154,6 +167,8 @@ function Game({
   const [blackMarketOpen, setBlackMarketOpen] = useState(false);
   // the crate being opened, if any
   const [crateOpen, setCrateOpen] = useState<string | null>(null);
+  // season review / Annual Report presentations waiting to be shown
+  const [presenting, setPresenting] = useState<('annual' | 'review')[]>([]);
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -220,22 +235,30 @@ function Game({
   }
 
   /* --- next week, with skip-events confirm ----------------- */
+  /** move time forward, queueing the year-end and season presentations */
+  const advanceTo = (next: GameState) => {
+    const queue: ('annual' | 'review')[] = [];
+    if ((next.annualReports || []).length > (state.annualReports || []).length) queue.push('annual');
+    if (next.lastReview && next.lastReview !== state.lastReview) queue.push('review');
+    setState(next);
+    if (queue.length) setPresenting(queue);
+  };
   const doNextWeek = () => {
     if (state.events.length > 0) { setConfirmSkip(true); return; }
-    setState(Sim.stepWeek(state));
+    advanceTo(Sim.stepWeek(state));
   };
   const confirmSkipYes = () => {
     setConfirmSkip(false);
-    setState(Sim.stepWeek(state));
+    advanceTo(Sim.stepWeek(state));
   };
   const doSimToNext = () => {
     const res = Sim.simToNextOpportunity(state);
-    setState(res.state);
+    advanceTo(res.state);
     flash(`${res.weeks} week${res.weeks === 1 ? '' : 's'} later — ${res.reason}`);
   };
   const doSimSeason = () => {
     const res = Sim.simToEndOfSeason(state);
-    setState(res.state);
+    advanceTo(res.state);
     flash(res.reason);
   };
   const confirmSkipNo = () => {
@@ -310,6 +333,12 @@ function Game({
       setState={setState} onArtifact={setOpenArtifactId} />;
   } else if (tab === 'collection') {
     body = <CodexTab state={state} apply={apply} onArtifact={setOpenArtifactId} />;
+  } else if (tab === 'season') {
+    body = <>
+      <SeasonPanel state={state} setState={setState} onSimSeason={doSimSeason} apply={apply} />
+      <AnnualReportPanel state={state} />
+      <HistoryPanel state={state} />
+    </>;
   } else if (tab === 'artists') {
     body = <ArtistsTab state={state} apply={apply} />;
   } else if (tab === 'catalogue') {
@@ -320,7 +349,7 @@ function Game({
       onExpeditionResult={expId => setExpeditionGame(expId)}
       onGala={() => setGalaOpen(true)}
       onBlackMarket={() => setBlackMarketOpen(true)}
-      onOpenCrate={id => setCrateOpen(id)} apply={apply} onSimSeason={doSimSeason} />;
+      onOpenCrate={id => setCrateOpen(id)} apply={apply} />;
   } else if (tab === 'exploration') {
     body = <ExpeditionsTab state={state} apply={apply} />;
   } else if (tab === 'staff') {
@@ -338,10 +367,15 @@ function Game({
 
   return (
     <Shell state={state} tab={tab}
-      setTab={t => { setOpenArtifactId(null); setConfirmSkip(false); setTab(t); }}
+      setTab={t => { setOpenArtifactId(null); setConfirmSkip(false); setCrateOpen(null); setTab(t); window.scrollTo({ top: 0 }); }}
       onExit={onExit} onNextWeek={doNextWeek} onSimToNext={doSimToNext}>
       {body}
       {toast && <div className="toast">{toast}</div>}
+      {presenting[0] === 'annual' && (state.annualReports || []).length > 0 &&
+        <AnnualReportShow report={state.annualReports![state.annualReports!.length - 1]}
+          onClose={() => setPresenting(p => p.slice(1))} />}
+      {presenting[0] === 'review' && state.lastReview &&
+        <ReviewShow review={state.lastReview} onClose={() => { setPresenting(p => p.slice(1)); setTab('season'); }} />}
     </Shell>
   );
 }
@@ -350,76 +384,85 @@ function Game({
    SHELL — header (with Next Week), stat strip, tab bar
    ============================================================ */
 function Shell({
-  state, tab, setTab, hideTabs, onExit, onNextWeek, onSimToNext, children,
+  state, tab, setTab, onExit, onNextWeek, onSimToNext, children,
 }: {
   state: GameState; tab: Tab; setTab: (t: Tab) => void;
   hideTabs?: boolean; onExit: () => void; onNextWeek: () => void; onSimToNext?: () => void;
   children: React.ReactNode;
 }) {
   const inGame = state.phase === 'playing';
-  const ratings = E.museumExhibitionRatings(state);
-  const navGroups: { title: string; items: [Tab, string, string][] }[] = [
-    { title: 'Museum', items: [
-      ['floor', 'Museum Floor', '🏛'],
-      ['opportunities', 'Calendar & Opportunities', '📅'],
-    ]},
-    { title: 'Collection', items: [
-      ['collection', 'Collection Vault', '🖼'],
-      ['catalogue', 'Catalogue & Sets', '📖'],
-      ['artists', 'Living Artists', '🎨'],
-      ['exploration', 'Exploration', '🧭'],
-    ]},
-    { title: 'Institution', items: [
-      ['staff', 'Staff', '👥'],
-      ['research', 'Research & Styles', '📚'],
-      ['finance', 'Finance & Marketing', '💼'],
-    ]},
-    { title: 'World', items: [
-      ['city', 'City & Neighborhoods', '🗺'],
-      ['museums', 'Museums & Rankings', '🌍'],
-    ]},
-  ];
+  const hub = hubOf(tab);
+  const rep = E.totalReputation(state);
+  const last = state.history[state.history.length - 1];
+  const prev = state.history[state.history.length - 5];
+  const visitors = last ? last.dailyVisitors : 0;
+  const trend = last && prev && prev.dailyVisitors ? Math.round((last.dailyVisitors - prev.dailyVisitors) / prev.dailyVisitors * 100) : 0;
+  const surplus = state.lastRevenue - state.lastExpenses;
+  const badges: Partial<Record<Tab, number>> = {
+    opportunities: state.events.length + (state.crates || []).length + (state.estateOffer ? 1 : 0),
+    season: state.season && !state.season.planned ? 1 : 0,
+  };
+  const hubBadge = (h: typeof HUBS[number]) => h.tabs.reduce((n, [id]) => n + (badges[id] || 0), 0);
+  const season = state.season;
   return (
-    <div className="game-shell">
-      <header className="director-bar">
-        <div className="brand-block" onClick={onExit}>
-          <div className="brand-mark">MW</div>
-          <div><h1>{state.galleryName || 'Museum Wars'}</h1><span className="tagline">Week {state.week}{state.season ? ` · ${Season.seasonLabel(state.season.index)} · ${state.season.initiativesLeft}/${state.season.initiativesMax} initiatives` : ''}</span></div>
+    <div className="salon-shell">
+      <header className="salon-header">
+        <div className="salon-header-top">
+          <div>
+            <div className="salon-kicker">{season ? Season.seasonLabel(season.index) : `Week ${state.week}`}
+              {' '}· {Season.LEAGUE_NAMES[state.league || 'city']} #{Season.leagueRank(state)}</div>
+            <h1 className="salon-title" onClick={onExit} title="Back to the home screen">{state.galleryName || 'Museum Wars'}</h1>
+          </div>
+          {season && <div className="salon-tokens" aria-label={`${season.initiativesLeft} of ${season.initiativesMax} initiatives left`}>
+            {Array.from({ length: season.initiativesMax }, (_, i) => <i key={i} className={i < season.initiativesLeft ? '' : 'spent'} />)}
+          </div>}
         </div>
-        {inGame && <div className="director-actions">
-          {(state.crates || []).length > 0 && <button className="event-alert crate-alert" onClick={() => setTab('opportunities')}>▣ {(state.crates || []).length} crate{(state.crates || []).length === 1 ? '' : 's'}</button>}
-          {state.events.length > 0 && <button className="event-alert" onClick={() => setTab('opportunities')}>{state.events.length} opportunit{state.events.length === 1 ? 'y' : 'ies'}</button>}
-          {onSimToNext && <button className="ghost sim-next-btn" onClick={onSimToNext}
-            title="Run quiet weeks automatically and stop at the next notable lot, returning expedition or milestone">Sim to next opportunity ⏩</button>}
-          <button className="next-week-btn" onClick={onNextWeek}>Open next week →</button>
-        </div>}
+        <div className="salon-kpis">
+          <div className="salon-kpi"><span>Visitors</span><b>{visitors.toLocaleString()}</b>
+            <small className={trend > 0 ? 'up' : trend < 0 ? 'down' : ''}>{trend ? `${trend > 0 ? '▲' : '▼'} ${Math.abs(trend)}% a day` : 'a day'}</small></div>
+          <div className="salon-kpi"><span>Reputation</span><b>{E.totalFame(state).toLocaleString()}</b>
+            <small>P {Math.round(rep.prestige)} · Pop {Math.round(rep.popularity)} · Pat {Math.round(rep.patronage)}</small></div>
+          <div className="salon-kpi"><span>Cash</span><b>{compact(state.funds)}</b>
+            <small className={surplus >= 0 ? 'up' : 'down'}>{surplus >= 0 ? '+' : '−'}{compact(Math.abs(surplus))} / wk</small></div>
+        </div>
       </header>
-      <div className="kpi-ribbon">
-        <Stat label="Cash" value={money(state.funds)} />
-        <Stat label="Visitors" value={state.history.length ? String(state.history[state.history.length - 1].dailyVisitors) + '/day' : 'Opening'} />
-        <Stat label="Revenue" value={money(state.lastRevenue)} />
-        <Stat label="Art quality" value={String(ratings.artQuality)} />
-        <Stat label="Attractiveness" value={String(ratings.attractiveness)} />
-        <Stat label="Reputation" value={String(E.totalFame(state))}
-          sub={(() => { const r = E.totalReputation(state); return `Prestige ${Math.round(r.prestige)} · Popular ${Math.round(r.popularity)} · Patrons ${Math.round(r.patronage)}`; })()} />
-      </div>
-      <div className="director-layout">
-        {!hideTabs && <aside className="director-nav">
-          {navGroups.map(group => <div className="nav-group" key={group.title}>
-            <div className="nav-group-title">{group.title}</div>
-            {group.items.map(([id, label, icon]) => <button key={id}
-              className={'nav-action' + (tab === id ? ' active' : '')}
-              onClick={() => setTab(id)}><span>{icon}</span>{label}
-              {id === 'opportunities' && state.events.length + (state.crates || []).length > 0
-                && <b>{state.events.length + (state.crates || []).length}</b>}
-            </button>)}
-          </div>)}
-        </aside>}
-        <main className="director-main">{children}</main>
-      </div>
+      {inGame && <nav className="salon-subtabs" aria-label={`${hub} sections`}>
+        {HUBS.find(h => h.id === hub)!.tabs.map(([id, label]) => (
+          <button key={id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
+            {label}{badges[id] ? <b>{badges[id]}</b> : null}</button>))}
+      </nav>}
+      <main className="salon-main">{children}</main>
+      {inGame && <div className="salon-dock">
+        {onSimToNext && <button className="dock-main" onClick={onSimToNext}>Sim to next opportunity</button>}
+        <button className="dock-week" onClick={onNextWeek} aria-label="Advance one week">+1 week</button>
+      </div>}
+      {inGame && <nav className="salon-hubs" aria-label="Main">
+        {HUBS.map(h => (
+          <button key={h.id} className={hub === h.id ? 'active' : ''} onClick={() => setTab(h.tabs[0][0])}>
+            <HubIcon hub={h.id} />{h.label}{hubBadge(h) ? <b>{hubBadge(h)}</b> : null}
+          </button>))}
+      </nav>}
     </div>
   );
 }
+
+/** §64,200 -> §64k, §1,250,000 -> §1.3M */
+function compact(n: number): string {
+  const a = Math.abs(n);
+  const sign = n < 0 ? '−' : '';
+  if (a >= 1e6) return `${sign}§${(a / 1e6).toFixed(1)}M`;
+  if (a >= 1e4) return `${sign}§${Math.round(a / 1e3)}k`;
+  return `${sign}§${Math.round(a).toLocaleString()}`;
+}
+
+function HubIcon({ hub }: { hub: Hub }) {
+  const p = { width: 22, height: 22, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, 'aria-hidden': true } as const;
+  if (hub === 'museum') return <svg {...p}><path d="M3 10l9-6 9 6" /><path d="M5 10v9h14v-9" /><path d="M9 19v-5h6v5" /></svg>;
+  if (hub === 'acquire') return <svg {...p}><path d="M14 4l6 6-8 8-6-6z" /><path d="M4 20l5-5" /></svg>;
+  if (hub === 'institution') return <svg {...p}><circle cx="9" cy="8" r="3" /><path d="M3 19c0-3 3-5 6-5s6 2 6 5" /><circle cx="17" cy="9" r="2.5" /><path d="M16 14c3 0 5 2 5 5" /></svg>;
+  return <svg {...p}><circle cx="12" cy="12" r="8" /><path d="M4 12h16" /><path d="M12 4c3 3 3 13 0 16" /><path d="M12 4c-3 3-3 13 0 16" /></svg>;
+}
+
 /* "then vs now": the first week on record against the latest */
 function CareerSoFar({ state }: { state: GameState }) {
   const h = state.history;
@@ -446,10 +489,6 @@ function CareerSoFar({ state }: { state: GameState }) {
   );
 }
 
-function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return <div className="stat"><div className="label">{label}</div><div className="value">{value}</div>
-    {sub && <div className="stat-sub">{sub}</div>}</div>;
-}
 
 /* ============================================================
    ONBOARDING — choose style
@@ -1452,9 +1491,8 @@ function GalleryRoom({
    ============================================================ */
 function WeekTab({
   state, setState, flash, goGalleries, onNextWeek, onExpeditionResult, onGala,
-  onBlackMarket, onOpenCrate, apply, onSimSeason,
+  onBlackMarket, onOpenCrate, apply,
 }: {
-  onSimSeason: () => void;
   onOpenCrate: (crateId: string) => void;
   apply: (r: { state: GameState; error?: string }) => void;
   state: GameState;
@@ -1472,8 +1510,6 @@ function WeekTab({
   }
   return (
     <>
-    <SeasonPanel state={state} setState={setState} onSimSeason={onSimSeason} apply={apply} />
-    <AnnualReportPanel state={state} />
     <CratesPanel state={state} apply={apply} onOpen={onOpenCrate} />
     <div className="panel">
       <h2>Calendar &amp; Opportunities<span className="sub">Week {state.week}</span></h2>

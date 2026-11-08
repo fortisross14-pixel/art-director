@@ -32,11 +32,10 @@ export function SeasonPanel({ state, setState, onSimSeason, apply }: {
   apply: (r: { state: GameState; error?: string }) => void;
 }) {
   const season = state.season;
-  const [plan, setPlan] = useState<BudgetPlan | null>(null);
+  const [ptsRaw, setPtsRaw] = useState<Record<string, number> | null>(null);
   if (!season) return null;
-  const draft = plan || season.plan;
-  const total = S.BUDGET_LINES.reduce((n, k) => n + (draft[k] || 0), 0);
-  const fx = E.budgetEffects(state, E.activeMuseum(state));
+  const pts = ptsRaw || fromPlan(season.plan);
+  const setPts = (p: Record<string, number>) => setPtsRaw(p);
   return (
     <div className="panel">
       <h2>{S.seasonLabel(season.index)}<span className="sub">
@@ -57,18 +56,10 @@ export function SeasonPanel({ state, setState, onSimSeason, apply }: {
       {E.canStudioVisit(state) && <p><button onClick={() => apply(E.studioVisit(state))}>Visit the studios · §2,500 · 1 initiative</button></p>}
       <p className="empty-note">Initiatives left: <b>{season.initiativesLeft} / {season.initiativesMax}</b> (expeditions, studies,
         estate lots, research, campaigns, sponsors and temporary shows each use one; more staff, more initiatives).</p>
-      <p className="empty-note">Budget plan: how each week's surplus is split. {season.planned ? '' : <b>Not yet confirmed this season.</b>}</p>
-      <table className="then-now"><tbody>{S.BUDGET_LINES.map(k => (
-        <tr key={k}><td>{S.BUDGET_NAMES[k]}</td><td>
-          <input type="number" min={0} max={100} value={draft[k]} style={{ width: 64 }}
-            onChange={e => setPlan({ ...draft, [k]: Math.max(0, Number(e.target.value) || 0) })} /> %</td></tr>))}
-        <tr><td>Total</td><td>{total}% {total !== 100 && '(will be scaled to 100%)'}</td></tr>
-      </tbody></table>
-      <p className="empty-note">Now: marketing +{Math.round(25 * fx.marketing)}% visitors · exhibitions +{Math.round(20 * fx.exhibitions)}%
-        presentation · operations {Math.round(fx.operations * 100)}% funded · endowment {money(state.endowment || 0)}</p>
+      <PointsPicker state={state} pts={pts} setPts={setPts} />
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <button onClick={() => { setState(S.setPlan(state, draft)); setPlan(null); }}>Confirm plan</button>
-        <button className="ghost" onClick={onSimSeason}>Sim to end of season ⏭</button>
+        <button onClick={() => { setState(S.setPlan(state, toPlan(pts))); setPtsRaw(null); }}>{season.planned ? 'Update the plan' : 'Confirm the plan'}</button>
+        <button className="ghost" onClick={onSimSeason}>Sim to end of season</button>
       </div>
       {state.lastReview && <ReviewBlock state={state} />}
       <LeagueTable state={state} />
@@ -104,6 +95,62 @@ function RetireButton({ state, setState }: { state: GameState; setState: (s: Gam
         <button className="ghost" onClick={() => setSure(false)}>Not yet</button></>
         : <button className="ghost" onClick={() => setSure(true)}>Retire…</button>}
     </p>
+  );
+}
+
+/* --- the 20-point budget ------------------------------------ */
+export const BUDGET_POINTS = 20;
+const fromPlan = (plan: BudgetPlan): Record<string, number> => {
+  const p: Record<string, number> = {};
+  for (const k of S.BUDGET_LINES) p[k] = Math.round((plan[k] || 0) / (100 / BUDGET_POINTS));
+  return p;
+};
+const toPlan = (pts: Record<string, number>): BudgetPlan =>
+  Object.fromEntries(S.BUDGET_LINES.map(k => [k, (pts[k] || 0) * (100 / BUDGET_POINTS)])) as BudgetPlan;
+
+function PointsPicker({ state, pts, setPts }: {
+  state: GameState; pts: Record<string, number>; setPts: (p: Record<string, number>) => void;
+}) {
+  const used = S.BUDGET_LINES.reduce((n, k) => n + (pts[k] || 0), 0);
+  const free = BUDGET_POINTS - used;
+  const surplus = Math.max(0, state.lastRevenue - state.lastExpenses);
+  const perPoint = surplus / BUDGET_POINTS;
+  const fx = E.budgetEffects(state, E.activeMuseum(state));
+  const effect = (k: string, n: number) => {
+    const week = money(Math.round(perPoint * n));
+    if (k === 'acquisitions') return `${week} a week stays as cash to bid with`;
+    if (k === 'exhibitions') return `${week} a week · presentation now +${Math.round(20 * fx.exhibitions)}%`;
+    if (k === 'marketing') return `${week} a week · visitors now +${Math.round(25 * fx.marketing)}%`;
+    if (k === 'operations') return n * 5 < 15 ? 'Too little: visitors have a worse day' : n * 5 > 15 ? `Extra comfort for visitors` : 'Running smoothly';
+    return `${week} a week into the endowment (${money(state.endowment || 0)})`;
+  };
+  const bump = (k: string, d: number) => {
+    const n = (pts[k] || 0) + d;
+    if (n < 0 || n > 10 || (d > 0 && free <= 0)) return;
+    setPts({ ...pts, [k]: n });
+  };
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--s-muted)' }}>
+        <span>Budget: share out {BUDGET_POINTS} points of weekly surplus</span>
+        <span><b style={{ color: 'var(--s-ivory)' }}>{free}</b> left</span>
+      </div>
+      <div className="points-pool" aria-hidden="true">
+        {Array.from({ length: BUDGET_POINTS }, (_, i) => <i key={i} className={i < used ? 'on' : ''} />)}
+      </div>
+      {S.BUDGET_LINES.map(k => (
+        <div className="points-line" key={k}>
+          <div className="pl-body">
+            <span className="pl-name">{S.BUDGET_NAMES[k]}</span>
+            <span className="pl-pips" aria-hidden="true">{Array.from({ length: 10 }, (_, i) => <i key={i} className={i < (pts[k] || 0) ? 'on' : ''} />)}</span>
+            <span className="pl-effect">{effect(k, pts[k] || 0)}</span>
+          </div>
+          <button className="minus" aria-label={`Take a point from ${S.BUDGET_NAMES[k]}`} disabled={!pts[k]} onClick={() => bump(k, -1)}>−</button>
+          <span className="pl-n">{pts[k] || 0}</span>
+          <button aria-label={`Add a point to ${S.BUDGET_NAMES[k]}`} disabled={free <= 0 || (pts[k] || 0) >= 10} onClick={() => bump(k, 1)}>+</button>
+        </div>
+      ))}
+    </div>
   );
 }
 

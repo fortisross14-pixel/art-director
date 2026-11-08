@@ -633,7 +633,7 @@ instead of chosen):
 **Done when:** a finished career shows its summary, appears in the
 Hall of Fame, and is a rival in the next career.
 
-### M7 (v1.4): Visual identity
+### M7 (v1.4): Visual identity: Gilded Salon chosen; first pass shipped (VERSION_14_NOTES.md)
 **Scope:** R39–R43.
 - **Process, as in the F1 and Football GM projects:** use the design
   skills to propose **3 distinct visual identities** as mock-ups of the
