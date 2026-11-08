@@ -57,6 +57,65 @@ the museum, *what* you collect and *how* you fund it give each career a
 different identity. A finished career goes into a Hall of Fame and the
 next one starts in a freshly generated city.
 
+### A day in the life: the first year of a career
+The target pace is about 5–10 minutes per season, about 30 per year,
+and about 10–12 hours per 25-year career.
+
+**Founding (once, 2–3 min).**
+- Founder: *Heir*. You take the Roman marble head, and Cousin Marchetti
+  takes the Baroque sketch, so they'll bid on Baroque lots.
+- District: *Academic*. Research is twice as fast and grants are
+  available, but students won't pay much.
+- Focus: *Antiquities*. Name: *The Meridian Institute*.
+- You start in one rented room with §40k and 2 initiatives per season.
+
+**Spring: plan (2 min).**
+- Budget sliders: Acquisitions 50 / Exhibitions 20 / Marketing 10 /
+  Operations 20.
+- Feature the marble head alone: *"A Face from Rome."*
+- Spend the 2 initiatives on a university grant and an excavation
+  permit.
+- Forecast: about 25 visitors a day, a slight loss, 9 months of
+  runway.
+
+**Spring: play (5 min, "Sim to next event").**
+- Week 2, a rumour: Roman bronzes are expected in about 5 weeks. Save
+  for them, or fill the walls now?
+- Week 4: an estate lot reveals a *"Circle of a Hellenistic workshop"*
+  bronze for §3.8k, plus two Roman lamps. The room's cohesion goes up.
+- Week 7: you're outbid on the Rare bronze. It hurts, and you'll plan
+  for it next time.
+- Weeks 9 and 11: the grant arrives (+§12k, Prestige +3) and the
+  permit is granted.
+
+**Spring: review (1 min).**
+- *"Visitors +60%: new Roman room (+40%), student word-of-mouth (+20%).
+  Rank City #9 → #8."*
+- One line of advice: *"Visitors want labels."*
+
+**Summer.**
+- A new hire gives you a third initiative.
+- The dig crate reveals a partial inscribed stele.
+- Attribution research on the bronze comes back: **"It's an original."**
+  It becomes an Epic, gets a front page and becomes your Signature Work.
+
+**Year-end Annual Report.**
+- 1 room / 25 per day → 2 rooms / 110 per day. Collection value §18k →
+  §140k.
+- Award: *Discovery of the Year*. Critic: ★★★ *"Small, scholarly, and
+  lucky. Mostly scholarly."*
+- Next goal: City Top 3 unlocks Harringate & Cole.
+
+**By year 5, a season looks like this:**
+- Plan: rebalance the budget, choose blockbuster vs permanent, spend
+  about 4 initiatives.
+- Play: 2–4 interruptions.
+- Review: deltas, plus one problem to fix.
+
+The thinking is never about exact amounts. It's questions like *"4
+initiatives and §60k: chase the Vermeer rumour, fund the excavation, or
+fix Room 3?"*
+
 ---
 
 ## 3. Pillar 1: Collectibles and excitement
@@ -128,6 +187,58 @@ need, which leads to trade or loan negotiations.
 Each museum chooses one **Signature Work** for its poster. It drives
 tourist demand and appears on the title card, in the Annual Report and
 in the Hall of Fame. Replacing it with something better is a milestone.
+
+### 3.8 Crates and reveals (the pack-opening moment)
+Every luck-based channel ends in the **same ritual**, the way a Football
+GM pack does. It might be a Rare 71 or a Common 59; here it might be a
+Rare bronze or a Common worn coin.
+
+**Crate sources**
+
+| Source | How you get it | Cards | Twist |
+|---|---|---|---|
+| **Dig crate** | An expedition returns | 3–6 | The dig board you play sets the card count and tier |
+| **Estate lot** | Bought at auction "sight unseen" | 3–5 | Cheap, mostly commons, with a sleeper chance |
+| **Dealer portfolio** | Black market | 2–3 | A card may flip to **Forgery** |
+| **Bequest** | A donor dies (Patronage) | 1–3 | Rare and up, guaranteed |
+| **Studio visit** | Contemporary runs | 3 | Emerging-artist works with hidden potential |
+
+**The reveal**
+1. Cards come out face down. **The frame colour shows first**: grey,
+   green, blue, purple, gold, crimson.
+2. You flip them one by one, best last.
+3. Each card shows **score** (like overall rating), **type** (like
+   position: Painting, Sculpture, Manuscript, Object), **style**, and
+   **fit** with your museum. Off-focus works are valuable but
+   misplaced, like a great goalkeeper when you needed a striker.
+4. **A second roll:** attribution and condition. A "Circle of" coin can
+   become a sleeper after research (§3.2).
+5. **Legend and World Icon** pulls dim the screen, glow gold and make
+   the front page.
+
+**Openly shown odds (example)**
+
+| Crate tier | Common | Uncommon | Rare | Epic | Legend+ |
+|---|---|---|---|---|---|
+| Field dig | 70% | 22% | 7% | 1% | — |
+| Major excavation | 40% | 30% | 22% | 7% | 1% |
+| Legendary site | 15% | 25% | 35% | 20% | 5% |
+
+**Shards become "dust" from bad pulls.** There is one currency instead
+of today's 26 balances (2 tiers × 13 styles).
+- *Earned from:* duplicates, unwanted off-focus works, forgeries and
+  failed dig tiles.
+- *Spent on:* rerolling a card, upgrading a crate's tier, or filling the
+  **pity meter**. The meter guarantees a Rare+ every 8 crates and is
+  shown on screen.
+
+**It stays management:**
+- A crate costs an initiative, a season and budget. In the same slot
+  you could buy a known Uncommon at auction.
+- Misfits go to market, trade or loan instead of sitting in storage.
+- Each museum type has better odds in its own channel: Academic → dig
+  crates, Financial → studio crates, Art District → estate lots.
+- Crates are bought with in-game money only, never real money.
 
 ---
 
@@ -228,9 +339,9 @@ what it just bought.
 - **Rivals live in the market.** They bid, buy, lend and grow based on
   what they acquired, not on fixed scripts.
 - **The mini-games stay, but cost initiatives**, and all of them pay
-  into the same few outcomes: works, reputation and money. Retire
-  shard currencies in favour of "partial finds" that you can research
-  into a full work.
+  into the same few outcomes: works, reputation and money. The luck
+  channels resolve as **crates** (§3.8), and the per-style shard
+  balances become one universal **dust** currency.
 
 ---
 
@@ -364,6 +475,18 @@ UI addition for this pillar.
   Epic, Legend or World Icon.
 - **R14** Choosing a Signature Work.
 - **R15** Images for at least the Rare and higher public-domain works.
+- **R33** A crate system: every luck-based channel (dig, estate lot,
+  dealer, bequest, studio) resolves as a crate of 1–6 cards.
+- **R34** A reveal sequence: face-down cards, frame colour first, flip
+  one by one, best last, and a special treatment for Legend+.
+- **R35** Cards show score, type, style and **fit**, plus a second roll
+  for attribution and condition.
+- **R36** Odds are shown per crate tier, and each channel's odds depend
+  on museum type.
+- **R37** Dust: one currency from bad pulls, spent on rerolls, crate
+  upgrades and the pity meter (Rare+ every 8 crates, visible).
+- **R38** Crates cost an initiative and budget, and are never bought
+  with real money.
 
 ### Progression
 - **R16** An Annual Report with a year-over-year table, critic review
@@ -396,21 +519,89 @@ UI addition for this pillar.
 
 ---
 
-## 9. Roadmap
+## 9. Milestones
 
-Each phase should be playable at the end.
+Each milestone is playable when it ships and has a **"done when"** check
+that the headless balance sim (`npm run sim`) or a play session can
+verify.
 
-| Phase | Theme | Contents | Why this order |
-|-------|-------|----------|----------------|
-| **v0.8** | *Make it breathe* | R1–R7 | Nothing else matters until fame grows, money has pressure and systems are connected |
-| **v0.9** | *The thrill* | R8–R15 | Collectible excitement is the hook, and it reuses the 610-work catalogue |
-| **v1.0** | *A career* | R16–R25 | Seasons, the Annual Report and the league ladder make it a game with an arc |
-| **v1.1** | *Identity* | R26–R28, R30 | District twists and acquisition channels give each run its own shape |
-| **v1.2** | *Living artists* | R29 | The largest new system; it powers contemporary and financial-district runs |
-| **v1.3** | *Legacy* | R31–R32 | New careers, a Hall of Fame and generated worlds, the FBGM "one more career" loop |
+### M1 (v0.8): Make it breathe
+**Scope:** R1–R7.
+- One rating model.
+- Weekly reputation: Prestige, Popularity, Patronage.
+- Full career history.
+- Rivals who bid at auctions and grow from what they buy.
+- A paced rarity supply: a headline lot per season and a pity timer.
+- "Sim to next opportunity".
+- An economy with pressure.
+
+**Done when:**
+- Fame rises every week from operations alone.
+- A sensible strategy reaches Harringate & Cole (120 fame) in roughly
+  weeks 20–35.
+- Thesis, decor and curators visibly change visitors.
+- A Rare+ lot appears at least every 8 weeks.
+- History covers the whole career.
+
+### M2 (v0.9): The thrill
+**Scope:** R8–R15 and R33–R38.
+- Crates and the reveal sequence.
+- Dust and the pity meter.
+- Attribution and the sleeper mechanic.
+- The Catalogue with silhouettes, and sets.
+- Market rumours and the Signature Work.
+- The first image pass.
+
+**Done when:**
+- Every dig, estate lot and dealer offer resolves as a crate.
+- A first-year player sees at least one purple frame.
+- Per-style shard balances are gone.
+
+### M3 (v1.0): A career
+**Scope:** R16–R25.
+- The season loop with budget sliders and initiatives.
+- A review screen with deltas.
+- The Annual Report.
+- The league ladder.
+- Museum History and milestones.
+- Simplified knobs.
+- Navigation in 4 hubs.
+
+**Done when:** one year is 4 seasons, about 30 minutes of play, and
+ends with a report and a rank change.
+
+### M4 (v1.1): Identity
+**Scope:** R26–R28 and R30.
+- The founding draft.
+- District rule twists.
+- An acquisition channel per museum type.
+- Funding models.
+
+**Done when:** two sim runs with different districts and focuses end
+with visibly different revenue mixes and reputation profiles.
+
+### M5 (v1.2): Living artists
+**Scope:** R29.
+- Emerging artists with hidden potential.
+- Commissions, residencies and revaluation.
+- Studio crates.
+- Rivals scouting the same artists.
+
+**Done when:** a §3k Year 2 commission can become an Epic+ by about
+Year 10.
+
+### M6 (v1.3): Legacy
+**Scope:** R31–R32.
+- Career length options and retirement.
+- A Hall of Fame.
+- Generated cities and rivals.
+- Legacy museums in later careers.
+
+**Done when:** finishing a career leads straight into a new one in a
+different city.
 
 ### What to cut or fold in
-- Shard currencies are replaced by research on partial finds.
+- Per-style shard balances become one dust currency (M2).
 - Three room upgrade tracks become one Presentation tier.
 - Separate Research and Style Research merge into one knowledge tree per
   style, which also unlocks attribution research.
