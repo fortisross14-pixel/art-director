@@ -78,7 +78,7 @@ function Money({ state, apply, setState }: Props) {
       <div className="panel">
         <h2>Marketing<span className="sub">a campaign</span></h2>
         <p className="v2-muted">{m.adWeeksLeft > 0 ? `A campaign is running: ${m.adWeeksLeft} week(s) left.` : `${AD_CAMPAIGN.weeks} weeks of +${Math.round((AD_CAMPAIGN.visitorMult - 1) * 100)}% visitors.`}</p>
-        <button className="v2-wide" disabled={m.adWeeksLeft > 0} onClick={() => apply(E.runAdCampaign(state, m.id))}>Run a campaign · {money(AD_CAMPAIGN.cost)} · 1 initiative</button>
+        <button className="v2-wide" disabled={m.adWeeksLeft > 0} onClick={() => apply(E.runAdCampaign(state, m.id))}>Run a campaign<span className="cost">{money(AD_CAMPAIGN.cost)} and 1 initiative</span></button>
       </div>
       <SponsorsPanel state={state} apply={apply} museum={m} building={BUILDINGS[m.buildingId]} />
     </>

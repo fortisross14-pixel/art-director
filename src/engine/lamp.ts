@@ -12,7 +12,7 @@
    call it stolen (cheap if right, insulting if wrong), or walk.
    ============================================================ */
 import type { BlackMarketOffer, Verdict } from './blackmarket';
-import { randInt } from './util';
+import { randInt, shuffled } from './util';
 
 export type Tell = 'green' | 'amber' | 'red' | 'blue' | 'violet' | 'none';
 export const LAMP_CELLS = 16;
@@ -39,7 +39,7 @@ export interface LampState {
 
 export function makeLamp(offer: BlackMarketOffer, bonusScans = 0): LampState {
   const cells: Tell[] = Array(LAMP_CELLS).fill('none');
-  const spots = Array.from({ length: LAMP_CELLS }, (_, i) => i).sort(() => Math.random() - 0.5);
+  const spots = shuffled(Array.from({ length: LAMP_CELLS }, (_, i) => i));
   let p = 0;
   for (const [tell, n] of Object.entries(RECIPE[offer.verdict]) as [Tell, number][])
     for (let k = 0; k < n; k++) cells[spots[p++]] = tell;

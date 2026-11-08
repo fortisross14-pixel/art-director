@@ -174,7 +174,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
         <button onClick={() => setSheet({ kind: 'decor' })}>Decor: {D.DECOR[(room.decorStyle || 'classic') as keyof typeof D.DECOR].name}</button>
         <span>Presentation: {E.presentationTier(room)}</span>
       </div>
-      {Number.isFinite(upgradeCost) && <button className="v2-wide" onClick={() => apply(E.upgradePresentation(state, room.id))}>Upgrade presentation · {money(upgradeCost)}</button>}
+      {Number.isFinite(upgradeCost) && <button className="v2-wide" onClick={() => apply(E.upgradePresentation(state, room.id))}>Upgrade presentation<span className="cost">{money(upgradeCost)}</span></button>}
 
       {sheet && (
         <div className="present" onClick={() => setSheet(null)}>
@@ -207,7 +207,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
                 <p className="empty-note">{rarityForScore(art.score).name} {art.score} · {STYLES[art.style].name} · worth {money(art.value)}</p>
                 <div className="v2-sheetbtns">
                   {state.signatureId !== art.id && <button onClick={() => { apply(E.setSignature(state, art.id)); setSheet(null); }}>Make it the signature work</button>}
-                  {doubtful && <button className="ghost" onClick={() => { apply(E.startStudy(state, art.id)); setSheet(null); }}>Study the attribution · {money(Att.studyCost(state, art.id))}</button>}
+                  {doubtful && <button className="ghost" onClick={() => { apply(E.startStudy(state, art.id)); setSheet(null); }}>Study the attribution<span className="cost">{money(Att.studyCost(state, art.id))}</span></button>}
                   <button className="ghost" onClick={() => { nav.openArtifact(art.id); }}>Details</button>
                   <button className="ghost" onClick={() => { apply(E.removeArtifact(state, art.id)); setSheet(null); }}>Take it down</button>
                 </div>
@@ -254,14 +254,14 @@ function Building({ state, apply, nav }: Props) {
           <div><span>Rooms open</span><i><em style={{ width: `${open / m.rooms.length * 100}%` }} /></i><b>{open}/{m.rooms.length}</b></div>
         </div>
         <p className="empty-note">Holds {cap.toLocaleString()} a day now; each room you open makes room for more. Collection care {money(E.collectionCare(state))} a week. {E.atCapacity(state, m) ? <b>The building is full: open rooms or move.</b> : ''}</p>
-        {open < m.rooms.length && <button className="v2-wide" onClick={() => apply(E.openRoom(state))}>Open a room · {money(E.roomCost(state))}</button>}
+        {open < m.rooms.length && <button className="v2-wide" onClick={() => apply(E.openRoom(state))}>Open a room<span className="cost">{money(E.roomCost(state))}</span></button>}
       </div>
       {nb && <div className="panel">
         <div className="kicker">The next step up</div>
         <h2>{nb.name}</h2>
         <p className="empty-note">{nb.blurb} Holds about {nb.capacity.toLocaleString()} a day · upkeep {money(nb.maintenance)} / week.</p>
         {E.moveBlocker(state, nb.id) && <p className="v2-muted"><b>{E.moveBlocker(state, nb.id)}</b></p>}
-        <button className="v2-wide" onClick={() => apply(E.moveToBuilding(state, nb.id))} disabled={state.funds < nb.moveCost || !!E.moveBlocker(state, nb.id)}>Move · {money(nb.moveCost)}</button>
+        <button className="v2-wide" onClick={() => apply(E.moveToBuilding(state, nb.id))} disabled={state.funds < nb.moveCost || !!E.moveBlocker(state, nb.id)}>Move here<span className="cost">{money(nb.moveCost)}</span></button>
         <button className="ghost v2-wide" onClick={() => nav.go('office', 'standing')}>See the whole city</button>
       </div>}
       {!nb && !b.starter && <div className="panel">
@@ -270,7 +270,7 @@ function Building({ state, apply, nav }: Props) {
         {(m.wings || 0) < E.MAX_WINGS ? <>
           <p className="empty-note">Five more rooms and a quarter more visitors. Each wing costs twice the last.</p>
           {E.wingBlocker(state) && <p className="v2-muted"><b>{E.wingBlocker(state)}</b></p>}
-          <button className="v2-wide" disabled={!!E.wingBlocker(state)} onClick={() => apply(E.buildWing(state))}>Build · {money(E.wingCost(m))}</button>
+          <button className="v2-wide" disabled={!!E.wingBlocker(state)} onClick={() => apply(E.buildWing(state))}>Build the wing<span className="cost">{money(E.wingCost(m))}</span></button>
         </> : <p className="empty-note">The site is complete.</p>}
       </div>}
       <TemporaryExhibitionsPanel state={state} apply={apply} />

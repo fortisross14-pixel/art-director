@@ -5,8 +5,11 @@
    for the moments that deserve the whole phone: a gallery, an
    auction room, a crate, and the three card games.
    ============================================================ */
-import { useCallback, useEffect, useState } from 'react';
-import type { GameState } from '../../data/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { GameState, StyleId } from '../../data/types';
+import { STYLES } from '../../data/constants';
+import * as R from '../../engine/research';
+import { THESES } from '../../engine/ratings';
 import '../styles.css';
 import '../salon.css';
 import './v2.css';
@@ -76,18 +79,24 @@ function Game({ slot, initial, onExit }: { slot: number; initial: GameState; onE
   const [sub, setSub] = useState<Record<Menu, string>>({ week: 'week', museum: 'floor', acquire: 'calendar', office: 'plan' });
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // large-tier feedback: research finished, milestones reached
+  const [moments, setMoments] = useState<Moment[]>([]);
   const [presenting, setPresenting] = useState<('annual' | 'review')[]>([]);
   const [skipSheet, setSkipSheet] = useState(false);
 
+  const saveWarned = useRef(false);
   const flash = useCallback((msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(t => (t === msg ? null : t)), 2800);
   }, []);
   const setState = useCallback((s: GameState) => {
     setRaw(s);
-    Saves.saveSlot(slot, s);
+    if (!Saves.saveSlot(slot, s) && !saveWarned.current) {
+      saveWarned.current = true;
+      flash('The game could not be saved: this browser is out of storage or blocking it. Progress since now may be lost.');
+    }
     if (s.careerRecord) Legacy.saveToHallOfFame(s.careerRecord);
-  }, [slot]);
+  }, [slot, flash]);
   const apply: Apply = r => { if (r.error) flash(r.error); else setState(r.state); };
 
   // the auction clock: a fixed step, independent of renders
@@ -120,6 +129,8 @@ function Game({ slot, initial, onExit }: { slot: number; initial: GameState; onE
     if (next.lastReview && next.lastReview !== state.lastReview) queue.push('review');
     setState(next);
     if (queue.length) setPresenting(queue);
+    const m = momentsBetween(state, next);
+    if (m.length) setMoments(x => [...x, ...m].slice(0, 4));
   };
   const doEndWeek = () => { setSkipSheet(false); advanceTo(Sim.stepWeek(state)); setMenu('week'); setSub(x => ({ ...x, week: 'week' })); };
   const nav: Nav = {
@@ -209,6 +220,16 @@ function Game({ slot, initial, onExit }: { slot: number; initial: GameState; onE
         </div>
       )}
       {toast && <div className="toast">{toast}</div>}
+      {!presenting.length && moments.length > 0 && (
+        <div className="v2-moment" onClick={() => setMoments(x => x.slice(1))} role="dialog" aria-label={moments[0].title}>
+          <div className="v2-moment-card" key={moments[0].title}>
+            <span className="v2-moment-burst" aria-hidden="true" />
+            <div className="kicker">{moments[0].kind}</div>
+            <h2>{moments[0].title}</h2>
+            {moments[0].line && <p>{moments[0].line}</p>}
+            <button onClick={e => { e.stopPropagation(); setMoments(x => x.slice(1)); }}>{moments.length > 1 ? 'Next' : 'Carry on'}</button>
+          </div>
+        </div>)}
       {presenting[0] === 'annual' && (state.annualReports || []).length > 0 &&
         <AnnualReportShow report={state.annualReports![state.annualReports!.length - 1]} onClose={() => setPresenting(p => p.slice(1))} />}
       {presenting[0] === 'review' && state.lastReview &&
@@ -223,4 +244,21 @@ function MenuIcon({ m }: { m: Menu }) {
   if (m === 'museum') return <svg {...p}><path d="M3 10l9-6 9 6" /><path d="M5 10v9h14v-9" /><path d="M9 19v-5h6v5" /></svg>;
   if (m === 'acquire') return <svg {...p}><path d="M14 4l6 6-8 8-6-6z" /><path d="M4 20l5-5" /></svg>;
   return <svg {...p}><rect x="4" y="7" width="16" height="12" /><path d="M9 7V4h6v3" /></svg>;
+}
+
+/* --- moments: the big, rare news, one card at a time ------------ */
+interface Moment { kind: string; title: string; line: string; }
+function momentsBetween(a: GameState, b: GameState): Moment[] {
+  const out: Moment[] = [];
+  for (const st of Object.keys(b.knowledge || {}) as StyleId[]) {
+    const was = a.knowledge?.[st] || 0, now = b.knowledge?.[st] || 0;
+    if (now > was) out.push({ kind: 'Research complete', title: `${STYLES[st].name}: ${R.KNOWLEDGE_NAMES[now]}`, line: R.KNOWLEDGE_EFFECT[now] });
+  }
+  for (const t of R.thesesKnown(b)) if (!R.thesesKnown(a).includes(t))
+    out.push({ kind: 'Research complete', title: `New thesis: ${THESES[t].name}`, line: 'Open a room and choose it from the thesis tiles.' });
+  for (const t of R.digTiers(b)) if (!R.digTiers(a).includes(t) && t !== 'common')
+    out.push({ kind: 'Research complete', title: R.DIG_RESEARCH[t].name, line: R.DIG_RESEARCH[t].blurb });
+  for (const ms of (b.milestones || []).slice((a.milestones || []).length))
+    out.push({ kind: 'Milestone', title: ms.text, line: '' });
+  return out;
 }

@@ -502,6 +502,7 @@ export interface WeekSnapshot {
 /* --- save slots -------------------------------------------- */
 export interface SaveSlot {
   slot: number;                   // 0,1,2
+  version?: number;               // save schema version (see SAVE_VERSION)
   playerName: string;
   galleryName: string;
   week: number;

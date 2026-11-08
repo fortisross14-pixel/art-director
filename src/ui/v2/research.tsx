@@ -91,6 +91,7 @@ export function ResearchPage({ state, apply }: { state: GameState; apply: Apply 
                 <i className={'crate-' + EXPEDITION_CRATE[t]} /><b>{SIZE_NAME[t]}</b>
                 {have ? <span>Ready</span> : busy ? <span>Being researched</span> : plan &&
                   <button disabled={!!plan.blocker} onClick={() => begin('dig', t)}>Research<span className="cost">{money(plan.cost)}</span></button>}
+                {!have && !busy && plan?.blocker && <small className="v2-why">{plan.blocker}</small>}
               </div>
             );
           })}

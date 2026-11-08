@@ -9,6 +9,13 @@ export const randInt = (min: number, max: number) =>
   Math.floor(rand(min, max + 1));
 export const pick = <T>(arr: T[]): T => arr[randInt(0, arr.length - 1)];
 
+/** an unbiased Fisher–Yates shuffle (never sort with a random comparator: it's biased) */
+export function shuffled<T>(xs: T[]): T[] {
+  const a = [...xs];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
 /** a roughly-normal random value, mean 0, ~99.7% within ±1
  *  (Box-Muller, clamped). Used for auction sale variance. */
 export const gaussian = (): number => {

@@ -20,13 +20,9 @@ import type { Guest } from './gala';
 import type { BlackMarketOffer, PurchaseOutcome } from './blackmarket';
 import { purchaseOutcome } from './blackmarket';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
-import { rand } from './util';
+import { rand, shuffled } from './util';
 
-const shuffle = <T,>(xs: T[]): T[] => {
-  const a = [...xs];
-  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
-  return a;
-};
+const shuffle = shuffled;
 
 /* ============================ GALA ============================ */
 export type GalaTopic = ConverseTag | 'wit';
@@ -41,6 +37,8 @@ export interface GalaGame {
   goal: number;
   deck: GalaCard[];
   hand: GalaCard[];
+  /** played and discarded cards; shuffled back in when the deck runs out */
+  pile?: GalaCard[];
   taste: Record<GalaTopic, number>;
   known: Partial<Record<GalaTopic, number>>;
   charm: number;
@@ -71,7 +69,9 @@ export function galaDeck(s: GameState): GalaCard[] {
   return base.map(([topic, val], i) => ({ id: i, topic, val }));
 }
 
-export const galaGoal = (score: number) => (score >= 50 ? 17 : score >= 20 ? 13 : 9);
+export const galaGoal = (score: number) => (score >= 50 ? 18 : score >= 20 ? 14 : 10);
+/** each loan a collector has already made you raises the bar: they want more charm before parting with another */
+export const REPEAT_LOAN_CHARM = 3;
 
 /** start a conversation; a society member brings fixed tastes and what you already know */
 export function startGala(s: GameState, guest: Guest, targetId: string, member?: SocietyMember): GalaGame {
@@ -85,7 +85,7 @@ export function startGala(s: GameState, guest: Guest, targetId: string, member?:
   const deck = shuffle(galaDeck(s));
   const art = ARTIFACT_BY_ID[targetId];
   return {
-    guestName: guest.name, targetId, goal: galaGoal(art?.score || 0),
+    guestName: guest.name, targetId, goal: galaGoal(art?.score || 0) + REPEAT_LOAN_CHARM * (member?.lent || 0),
     deck: deck.slice(5), hand: deck.slice(0, 5), taste, known: { ...(member?.known || {}) } as GalaGame['known'],
     charm: 0, plays: 5, discards: 3, wit: false, last: null,
   };
@@ -93,18 +93,26 @@ export function startGala(s: GameState, guest: Guest, targetId: string, member?:
 
 export const galaOver = (g: GalaGame) => g.plays <= 0 || g.charm >= g.goal;
 
+/** take the top card; an empty deck reshuffles the pile first (card-game: never draw from nothing) */
+function drawOne(deck: GalaCard[], pile: GalaCard[]): { card: GalaCard | null; deck: GalaCard[]; pile: GalaCard[] } {
+  if (!deck.length) { deck = shuffle(pile); pile = []; }
+  if (!deck.length) return { card: null, deck, pile };
+  return { card: deck[0], deck: deck.slice(1), pile };
+}
+
 export function playCard(g: GalaGame, index: number): GalaGame {
   const c = g.hand[index];
   if (!c || galaOver(g)) return g;
-  const draw = g.deck.slice(0, 1);
-  const hand = [...g.hand.filter((_, i) => i !== index), ...draw];
+  const d = drawOne(g.deck, [...(g.pile || []), c]);
+  const hand = [...g.hand.filter((_, i) => i !== index), ...(d.card ? [d.card] : [])];
+  const zones = { hand, deck: d.deck, pile: d.pile };
   if (c.topic === 'wit')
-    return { ...g, hand, deck: g.deck.slice(1), plays: g.plays - 1, wit: true, last: { gain: 0, line: 'A laugh. Your next card counts double.', wit: true } };
+    return { ...g, ...zones, plays: g.plays - 1, wit: true, last: { gain: 0, line: 'A laugh. Your next card counts double.', wit: true } };
   const m = g.taste[c.topic];
   const gain = c.val * m * (g.wit && m > 0 ? 2 : 1);
   const line = m >= 2 ? 'Delighted!' : m === 1 ? 'A polite smile.' : m === 0 ? 'Her attention drifts…' : 'That gave offence.';
   return {
-    ...g, hand, deck: g.deck.slice(1), plays: g.plays - 1, wit: false,
+    ...g, ...zones, plays: g.plays - 1, wit: false,
     known: { ...g.known, [c.topic]: m }, charm: Math.max(0, g.charm + gain),
     last: { gain, line: g.wit && m > 0 ? line + ' Wit doubles it!' : line, wit: false },
   };
@@ -112,7 +120,8 @@ export function playCard(g: GalaGame, index: number): GalaGame {
 
 export function discardCard(g: GalaGame, index: number): GalaGame {
   if (g.discards <= 0 || galaOver(g) || !g.hand[index]) return g;
-  return { ...g, hand: [...g.hand.filter((_, i) => i !== index), ...g.deck.slice(0, 1)], deck: g.deck.slice(1), discards: g.discards - 1, last: null };
+  const d = drawOne(g.deck, [...(g.pile || []), g.hand[index]]);
+  return { ...g, hand: [...g.hand.filter((_, i) => i !== index), ...(d.card ? [d.card] : [])], deck: d.deck, pile: d.pile, discards: g.discards - 1, last: null };
 }
 
 export function galaResult(g: GalaGame): { success: boolean; loanWeeks: number; weeklyFee: number } {

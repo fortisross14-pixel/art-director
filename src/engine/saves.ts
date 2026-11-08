@@ -164,18 +164,46 @@ export function migrateState(state: Partial<GameState>): GameState {
   return s;
 }
 
-/** read a slot's save, or null if empty / unreadable */
-export function loadSlot(slot: number): SaveSlot | null {
+/** The save schema version. Bump it when the shape of a save changes and
+ *  add the step to migrateState; a save newer than this build is refused. */
+export const SAVE_VERSION = 18;
+const BAK = (slot: number) => KEY(slot) + ':bak';
+
+function parseRecord(raw: string | null): SaveSlot | null {
+  if (!raw) return null;
+  const parsed = JSON.parse(raw) as SaveSlot;
+  if (!parsed || typeof parsed.slot !== 'number' || !parsed.state || typeof parsed.state.week !== 'number') throw new Error('bad save');
+  return parsed;
+}
+
+/** what's in a slot: nothing, a good save, a damaged one we recovered from backup,
+ *  one we couldn't read at all, or one written by a newer version of the game */
+export type SlotStatus = 'empty' | 'ok' | 'restored' | 'damaged' | 'newer';
+export function slotStatus(slot: number): SlotStatus {
   try {
     const raw = localStorage.getItem(KEY(slot));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as SaveSlot;
-    if (!parsed || typeof parsed.slot !== 'number' || !parsed.state) return null;
-    parsed.state = ensureSeason(migrateState(parsed.state));
-    return parsed;
+    if (!raw) return localStorage.getItem(BAK(slot)) ? 'restored' : 'empty';
+    const rec = parseRecord(raw)!;
+    return (rec.version || 0) > SAVE_VERSION ? 'newer' : 'ok';
   } catch {
-    return null;
+    try { return parseRecord(localStorage.getItem(BAK(slot))) ? 'restored' : 'damaged'; } catch { return 'damaged'; }
   }
+}
+
+/** read a slot's save (falling back to its backup), or null if there is none.
+ *  A save from a newer build is never loaded: its fields can't be trusted here. */
+export function loadSlot(slot: number): SaveSlot | null {
+  for (const key of [KEY(slot), BAK(slot)]) {
+    try {
+      const rec = parseRecord(localStorage.getItem(key));
+      if (!rec) continue;
+      if ((rec.version || 0) > SAVE_VERSION) return null;
+      rec.state = ensureSeason(migrateState(rec.state));
+      rec.version = SAVE_VERSION;
+      return rec;
+    } catch { /* try the backup */ }
+  }
+  return null;
 }
 
 /** all three slots, empty ones as null */
@@ -185,11 +213,12 @@ export function listSlots(): (SaveSlot | null)[] {
   return out;
 }
 
-/** write a game state into a slot (the autosave) */
-export function saveSlot(slot: number, state: GameState): void {
+/** write a game state into a slot (the autosave); the previous good save is
+ *  kept as a backup. Returns false when the browser refused to store it. */
+export function saveSlot(slot: number, state: GameState): boolean {
   try {
     const record: SaveSlot = {
-      slot,
+      slot, version: SAVE_VERSION,
       playerName: state.playerName,
       galleryName: state.galleryName,
       week: state.week,
@@ -197,14 +226,17 @@ export function saveSlot(slot: number, state: GameState): void {
       savedAt: Date.now(),
       state,
     };
+    const prev = localStorage.getItem(KEY(slot));
+    // keep the last good save as a backup, but never overwrite a backup with a newer build's save
+    try { if (prev && (parseRecord(prev)!.version || 0) <= SAVE_VERSION) localStorage.setItem(BAK(slot), prev); } catch { /* prev was damaged: keep the old backup */ }
     localStorage.setItem(KEY(slot), JSON.stringify(record));
+    return true;
   } catch {
-    // storage full or unavailable — fail silently; the in-memory
-    // game continues, only persistence is lost.
+    return false;
   }
 }
 
 /** erase a slot */
 export function deleteSlot(slot: number): void {
-  try { localStorage.removeItem(KEY(slot)); } catch { /* ignore */ }
+  try { localStorage.removeItem(KEY(slot)); localStorage.removeItem(BAK(slot)); } catch { /* ignore */ }
 }

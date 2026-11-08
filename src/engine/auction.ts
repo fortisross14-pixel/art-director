@@ -14,7 +14,7 @@
    ============================================================ */
 import type { AuctionBidder, AuctionState, GameState } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
-import { rand, money, pick, randInt } from './util';
+import { rand, money, pick, randInt, shuffled } from './util';
 import { workOf } from './attribution';
 import { rulesFor } from '../data/identity';
 import { districtOfBuilding } from '../data/constants';
@@ -69,7 +69,7 @@ export function startLot(state: GameState, artifactId: string): AuctionState {
   const aggression = rulesFor(districtOfBuilding(here?.buildingId || 'local')?.id).rivalAggression;
   const score = art.score;
   const count = Math.min(4, 2 + (score >= 20 ? 1 : 0) + (Math.random() < 0.4 ? 1 : 0));
-  const names = [...COLLECTORS].sort(() => Math.random() - 0.5);
+  const names = shuffled(COLLECTORS);
   const bidders: AuctionBidder[] = [];
   // a cousin who collects this style comes in person
   const cousins = state.rivals.filter(r => r.style === art.style && (r.budget || 0) > value * 0.4);

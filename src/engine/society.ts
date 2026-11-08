@@ -10,7 +10,7 @@ import { GUEST_ARCHETYPES } from '../data/gala';
 import type { ConverseTag } from '../data/gala';
 import type { Guest } from './gala';
 import type { GalaGame } from './cardgames';
-import { randInt } from './util';
+import { randInt, shuffled } from './util';
 
 const NAMES = [
   'Lady Ashcombe', 'Baron Veil', 'Mme. Toussaint', 'Sir Roderick Quayle', 'Contessa Bellandi',
@@ -51,11 +51,11 @@ export function ensureSociety(s: GameState): SocietyMember[] {
 /** who turns up tonight: a familiar face or two, and someone new */
 export function galaGuests(s: GameState): SocietyMember[] {
   const all = ensureSociety(s).filter(m => m.collection.length);
-  const met = all.filter(m => m.met > 0).sort(() => Math.random() - 0.5);
-  const fresh = all.filter(m => m.met === 0).sort(() => Math.random() - 0.5);
+  const met = shuffled(all.filter(m => m.met > 0));
+  const fresh = shuffled(all.filter(m => m.met === 0));
   const out = [...met.slice(0, fresh.length ? 2 : 3), ...fresh.slice(0, 2)];
   for (const m of all) if (out.length < 3 && !out.includes(m)) out.push(m);
-  return out.slice(0, 4).sort(() => Math.random() - 0.5);
+  return shuffled(out.slice(0, 4));
 }
 
 /** a society member, seen as a gala guest */

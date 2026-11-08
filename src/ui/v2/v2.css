@@ -7,7 +7,7 @@
 .v2-header-actions { display: flex; gap: 8px; align-items: center; flex: 0 0 auto; }
 .salon .v2-cash { min-height: 44px; padding: 4px 10px; background: var(--s-surface); border: 1px solid var(--s-line); color: var(--s-ivory); display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; }
 .v2-cash b { font-family: var(--s-serif); font-size: 19px; }
-.v2-cash small { font-size: 10.5px; font-weight: 600; }
+.v2-cash small { font-size: 11px; font-weight: 600; }
 .v2-cash small.up { color: var(--s-good); } .v2-cash small.down { color: var(--s-bad); }
 .salon .v2-tokens { min-height: 44px; padding: 0 8px; background: transparent; border: 1px solid var(--s-line); display: flex; gap: 4px; align-items: center; }
 .v2-tokens i, .v2-initiatives i { width: 12px; height: 12px; border-radius: 50%; background: var(--s-gold); display: block; box-shadow: 0 0 6px rgba(201,162,75,0.5); }
@@ -40,7 +40,7 @@
 .v2-event-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .v2-event-body b { font-family: var(--s-serif); font-size: 19px; line-height: 1.15; }
 .v2-event-body span { font-size: 12.5px; color: var(--s-muted); }
-.v2-event-body small { font-size: 10.5px; color: var(--s-bad); font-weight: 600; }
+.v2-event-body small { font-size: 11px; color: var(--s-bad); font-weight: 600; }
 .v2-event-actions { display: flex; flex-direction: column; gap: 6px; }
 .salon .v2-event-actions button { min-width: 72px; min-height: 42px; padding: 6px 10px; }
 .salon .v2-event-actions button.ghost { min-height: 32px; font-size: 12px; color: var(--s-muted); }
@@ -88,7 +88,7 @@
 .salon .v2-slot { aspect-ratio: 3 / 4; min-height: 0; padding: 0; background: transparent; border: 2px dashed var(--s-gold-deep); border-radius: 1px; color: var(--s-gold); font-size: 30px; animation: breathe 2.4s ease-in-out infinite; }
 .salon .v2-work { min-height: 0; padding: 0; background: transparent; border: 0; display: flex; flex-direction: column; gap: 4px; align-items: stretch; color: var(--s-ivory); animation: deal 0.45s ease both; }
 .salon .v2-work .thumb { width: 100%; height: auto; aspect-ratio: 3 / 4; flex-basis: auto; border: 4px solid; border-color: inherit; border-radius: 1px; box-shadow: 0 6px 12px rgba(0,0,0,0.5); font-size: 28px; }
-.salon .v2-work span { font-size: 9.5px; line-height: 1.15; text-align: center; color: var(--s-muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.salon .v2-work span { font-size: 11px; line-height: 1.15; text-align: center; color: var(--s-muted); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .salon .v2-work.sig .thumb { box-shadow: 0 0 0 2px var(--s-gold-bright), 0 0 18px rgba(227,196,120,0.6); }
 .v2-floorline { height: 6px; background: #4A2E22; margin-top: 10px; }
 .v2-people { display: flex; justify-content: space-between; align-items: flex-end; height: 34px; margin-top: 8px; }
@@ -152,7 +152,7 @@
 .salon .v2-regions button.sel, .salon .v2-tiers button.sel, .salon .v2-leaders button.sel { border: 2px solid var(--s-gold); background: #3A2226; }
 .v2-regions b, .v2-tiers b { font-family: var(--s-serif); font-size: 17px; }
 .v2-regions span, .v2-tiers span { font-size: 11.5px; color: var(--s-muted); }
-.v2-regions small { font-size: 10.5px; color: var(--s-bad); }
+.v2-regions small { font-size: 11px; color: var(--s-bad); }
 .v2-tiers em { font-style: normal; font-size: 13px; font-weight: 700; color: var(--s-gold-bright); }
 .v2-tiers i { width: 28px; height: 28px; border: 3px solid; display: block; margin-bottom: 4px; }
 .v2-tiers i.crate-field { border-color: var(--r-uncommon); } .v2-tiers i.crate-major { border-color: var(--r-rare); box-shadow: 0 0 8px var(--r-rare); } .v2-tiers i.crate-legendary { border-color: var(--r-legend); box-shadow: 0 0 10px var(--r-legend); }
@@ -212,7 +212,7 @@
 .salon .v2-card.sel { transform: translateY(-14px); border-color: var(--s-gold-bright); background: #FFF6DE; }
 .v2-card-val { font-family: var(--s-serif); font-size: 28px; font-weight: 700; color: #6A4A1E; line-height: 1; }
 .v2-card-name { font-size: 11px; font-weight: 700; text-align: center; line-height: 1.15; }
-.v2-card small { font-size: 10px; font-weight: 700; }
+.v2-card small { font-size: 11px; font-weight: 700; }
 .salon .v2-card.h-loved { border-color: #6E9A6A; } .v2-card.h-loved small { color: #2F7A3A; }
 .salon .v2-card.h-offends, .salon .v2-card.h-bored { border-color: #B8432F; } .v2-card.h-offends small, .v2-card.h-bored small { color: #A23A2A; }
 .v2-card.h-next2 small { color: #2F7A3A; }
@@ -222,7 +222,7 @@
 .v2-dealerhead b { font-family: var(--s-serif); font-size: 20px; line-height: 1.15; } .v2-dealerhead span { font-size: 12px; color: var(--s-muted); }
 .v2-digcrate { text-align: center; padding: 6px 12px; border: 1px solid var(--s-gold-deep); background: var(--s-deep); display: flex; flex-direction: column; }
 .v2-digcrate b { font-family: var(--s-serif); font-size: 30px; line-height: 1; color: var(--s-gold-bright); }
-.v2-digcrate span, .v2-digcrate small { font-size: 10px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.v2-digcrate span, .v2-digcrate small { font-size: 11px; color: var(--s-muted); text-transform: uppercase; letter-spacing: 0.08em; }
 .v2-trenches { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
 .v2-trench { display: flex; flex-direction: column; gap: 4px; padding: 6px; min-height: 300px; border: 2px solid var(--s-line); background: linear-gradient(#4A3020, #2A1A10 70%, #140A0C); border-radius: 3px; }
 .v2-trench.sel { border-color: var(--s-gold); }
@@ -236,7 +236,7 @@
 .v2-layer.k-find { background: #C9B38A; color: #1A0E10; } .v2-layer.k-find.gold { background: #D9A441; box-shadow: 0 0 10px rgba(255,214,110,0.6); }
 .v2-layer.k-hazard { background: #8A2E22; color: #FFD9CC; } .v2-layer.k-earth { background: #3A2A1E; color: var(--s-muted); }
 @keyframes layer-in { from { transform: rotateX(90deg); opacity: 0; } }
-.v2-trench small { font-size: 10.5px; text-align: center; color: var(--s-gold-bright); font-weight: 600; }
+.v2-trench small { font-size: 11px; text-align: center; color: var(--s-gold-bright); font-weight: 600; }
 .v2-trench.st-collapsed small { color: var(--s-bad); } .v2-trench.st-banked small { color: var(--s-good); }
 .v2-digmsg { text-align: center; font-family: var(--s-serif); font-size: 19px; color: var(--s-gold-bright); min-height: 26px; margin: 4px 0; }
 .v2-digmsg.bad { color: var(--s-bad); }
@@ -258,7 +258,7 @@
 .room-intro { display: flex; flex-direction: column; gap: 8px; }
 .salon .room-intro button.ghost { min-height: 46px; color: var(--s-gold-bright); border-color: var(--s-gold); }
 .paddle.nervous .paddle-disc { animation: tremble 0.35s ease-in-out infinite; border-color: var(--s-bad); }
-.paddle-mood { font-size: 10px; color: var(--s-bad); }
+.paddle-mood { font-size: 11px; color: var(--s-bad); }
 @keyframes tremble { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px) rotate(-3deg); } 75% { transform: translateX(2px) rotate(3deg); } }
 .salon .v2-slot:hover:not(:disabled) { background: rgba(201,162,75,0.12); color: var(--s-gold-bright); border-color: var(--s-gold); }
 .salon .v2-work:hover:not(:disabled) { background: transparent; }
@@ -320,9 +320,9 @@
 
 /* --- galas: people you've met --------------------------------- */
 .salon .v2-guests button.met { border-color: var(--s-gold-deep); }
-.v2-metline { font-size: 10.5px; color: var(--s-gold); text-align: center; }
+.v2-metline { font-size: 11px; color: var(--s-gold); text-align: center; }
 .v2-tastes.mini { margin: 0; justify-content: center; gap: 3px; }
-.v2-tastes.mini span { font-size: 9.5px; padding: 1px 5px; }
+.v2-tastes.mini span { font-size: 11px; padding: 1px 5px; }
 .salon .v2-gchips .v2-chipicon { border: 0; min-height: 0; padding: 0; border-radius: 0; }
 .present-sheet { position: relative; }
 .salon .v2-sheetclose { position: sticky; top: 0; float: right; z-index: 2; width: 44px; height: 44px; min-height: 44px; padding: 0; margin: -6px -6px 0 0;
@@ -355,3 +355,26 @@
 .salon button .cost { display: block; font-size: 11.5px; font-weight: 500; opacity: 0.8; margin-top: 2px; font-family: var(--s-sans, inherit); }
 .salon .panel h2 .sub, .salon .present-sheet h2 .sub { text-transform: none; letter-spacing: 0; font-family: var(--s-serif); font-style: italic; font-weight: 400; font-size: 15px; color: var(--s-gold); margin-left: 8px; }
 .salon .kicker, .salon .present-sheet .kicker { text-transform: none; letter-spacing: 0; font-family: var(--s-serif); font-style: italic; font-size: 15px; }
+
+/* --- large-tier feedback: a moment card (game-feel: scale to importance) --- */
+.v2-moment { position: fixed; inset: 0; z-index: 80; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(8,4,5,0.78); }
+.v2-moment-card { position: relative; width: 100%; max-width: 360px; padding: 28px 22px 20px; text-align: center; background: var(--s-surface); border: 2px solid var(--s-gold);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6); animation: moment-pop 0.45s cubic-bezier(.34,1.56,.64,1) both; overflow: hidden; }
+.v2-moment-card h2 { font-family: var(--s-serif); font-size: 28px; line-height: 1.1; margin: 6px 0 10px; position: relative; }
+.v2-moment-card p { color: var(--s-muted); font-size: 14px; position: relative; }
+.v2-moment-card .kicker, .v2-moment-card button { position: relative; }
+.salon .v2-moment-card button { margin-top: 14px; min-width: 160px; min-height: 48px; }
+.v2-moment-burst { position: absolute; left: 50%; top: 38%; width: 520px; height: 520px; margin: -260px 0 0 -260px; pointer-events: none;
+  background: repeating-conic-gradient(rgba(227,196,120,0.16) 0 8deg, transparent 8deg 22deg); border-radius: 50%; animation: burst 1.6s ease-out both; }
+@keyframes moment-pop { from { transform: scale(0.6); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes burst { from { transform: scale(0.2) rotate(0deg); opacity: 0; } 30% { opacity: 1; } to { transform: scale(1) rotate(40deg); opacity: 0.55; } }
+
+/* --- keyboard focus is always visible (game-ui-ux) --- */
+.salon button:focus-visible, .salon input:focus-visible, .salon [role="button"]:focus-visible {
+  outline: 3px solid var(--s-gold-bright); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .v2-moment-card, .v2-moment-burst { animation-duration: 0.01s !important; }
+}
+.v2-why-line { font-size: 12.5px; color: var(--s-bad); margin: 10px 0 -4px; }
+.v2-owns i { width: 18px; height: 22px; font-style: normal; font-size: 11px; font-weight: 800; color: #1A0E10; display: flex; align-items: center; justify-content: center; }
+.v2-tier .v2-why { font-size: 11px; line-height: 1.2; }

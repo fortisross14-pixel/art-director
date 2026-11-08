@@ -131,11 +131,17 @@ export function Home({
                 </button>
               </div>
             </>
+          ) : Saves.slotStatus(i) === 'newer' ? (
+            <div className="slot-actions"><p className="empty-note">This slot was saved by a newer version of Art Director. Reload the page to update the game, then continue.</p></div>
+          ) : Saves.slotStatus(i) === 'damaged' ? (
+            <div className="slot-actions"><p className="empty-note">This save is damaged and can't be read. Delete it to start a new game here.</p>
+              <button className="ghost" onClick={() => { if (confirm('Delete the damaged save?')) { Saves.deleteSlot(i); refresh(); } }}>Delete</button></div>
           ) : (
             <div className="slot-actions">
               <button onClick={() => onNew(i)}>New Game</button>
             </div>
           )}
+          {rec && Saves.slotStatus(i) === 'restored' && <p className="empty-note">The latest save was damaged, so this is your previous save.</p>}
         </div>
       ))}
       <HallOfFame />

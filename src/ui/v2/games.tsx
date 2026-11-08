@@ -47,7 +47,8 @@ export function GalaGame({ state, apply, onClose }: { state: GameState; apply: A
         {members.map(x => (
           <button key={x.id} onClick={() => setMember(x)} className={x.met ? 'met' : ''}>
             <span className="v2-face">{initials(x.name)}</span><b>{x.name}</b>
-            <span className="v2-owns">{x.collection.map(id => <i key={id} style={{ background: rarityForScore(ARTIFACT_BY_ID[id].score).hex }} />)}</span>
+            <span className="v2-owns" aria-label={x.collection.map(id => rarityForScore(ARTIFACT_BY_ID[id].score).name).join(', ')}>
+              {x.collection.map(id => { const b = rarityForScore(ARTIFACT_BY_ID[id].score); return <i key={id} style={{ background: b.hex }}>{b.name.charAt(0)}</i>; })}</span>
             <small className="v2-metline">{x.met ? `You know ${Soc.knownCount(x)} of their 8 tastes` : 'Someone new'}</small>
             {x.met > 0 && <span className="v2-tastes mini">{tasteChips(x.known)}</span>}
           </button>))}
@@ -100,7 +101,7 @@ export function GalaGame({ state, apply, onClose }: { state: GameState; apply: A
           <b className={last.wit || last.gain > 0 ? 'up' : 'down'}>{last.wit ? '×2' : (last.gain >= 0 ? '+' : '') + last.gain}</b><span>{last.line}</span></div>}
         {result && <div className={'v2-result ' + (result.success ? 'won' : 'lost')}>
           <b>{result.success ? 'A loan secured!' : 'Politely declined'}</b>
-          {result.success && <span>{art.name} · {result.loanWeeks} weeks · {money(result.weeklyFee)}/week</span>}
+          {result.success && <span>{art.name}, on loan for {result.loanWeeks} weeks at {money(result.weeklyFee)} a week</span>}
           <button onClick={() => {
             if (claimed) return;
             setClaimed(true);

@@ -157,9 +157,15 @@ function Expeditions({ state, apply, nav }: Props) {
           <button className={leader === '' ? 'sel' : ''} onClick={() => setLeader('')}>No leader</button>
           {free.map(x => <button key={x.id} className={leader === x.id ? 'sel' : ''} onClick={() => setLeader(x.id)}>{x.name} · {x.specialty}</button>)}
         </div>
+        {(() => {
+          const why = !R.digTiers(state).includes(tier) ? 'Research this size of expedition first (Office → Research).'
+            : R.knowledgeOf(state, style) < R.DIG_KNOWLEDGE ? `Research ${STYLES[style].name} to ${R.KNOWLEDGE_NAMES[R.DIG_KNOWLEDGE]} to dig there.`
+            : state.funds < cost ? `You need ${money(cost - state.funds)} more.` : E.initiativeError(state);
+          return why ? <p className="v2-why-line">{why}</p> : null;
+        })()}
         <button className="v2-wide v2-send" disabled={state.funds < cost}
           onClick={() => apply(E.commissionExpedition(state, tier, style, leader || null))}>
-          Send the team · {money(cost)} · 1 initiative</button>
+          Send the team<span className="cost">{money(cost)} and 1 initiative</span></button>
         <p className="v2-muted">Back in {EXPEDITION_WEEKS} weeks. You play the dig when they return.</p>
       </div>
       {state.claim && <p className="empty-note">A repatriation claim on {ARTIFACT_BY_ID[state.claim.artifactId]?.name} is waiting in the Week menu.</p>}
