@@ -717,3 +717,52 @@ body.salon { padding-bottom: 0; }
 .lamp-result.good b { color: var(--s-good); }
 .lamp-result.bad b { color: var(--s-bad); }
 .lamp-legend { display: flex; flex-wrap: wrap; gap: 6px 12px; justify-content: center; margin-top: 12px; font-size: 11.5px; color: var(--s-muted); }
+
+/* --- charm the guest (v1.5) ----------------------------------- */
+.charm-guests { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.salon .charm-guest { min-height: 150px; background: var(--s-surface-2); color: var(--s-ivory); border: 1px solid var(--s-line); display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 8px; animation: rise 0.45s ease both; }
+.salon .charm-guest:nth-child(2) { animation-delay: 0.07s; } .salon .charm-guest:nth-child(3) { animation-delay: 0.14s; } .salon .charm-guest:nth-child(4) { animation-delay: 0.21s; }
+.salon .charm-guest:hover:not(:disabled) { background: #432A2E; border-color: var(--s-gold); }
+.charm-face { width: 58px; height: 58px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: radial-gradient(circle at 35% 30%, #5A3A2E, #2A1619); border: 2px solid var(--s-gold); font-family: var(--s-serif); font-size: 28px; font-weight: 700; color: var(--s-gold-bright); }
+.charm-face.big { width: 72px; height: 72px; font-size: 34px; flex: 0 0 auto; transition: box-shadow 0.3s; }
+.charm-face.warm { box-shadow: 0 0 0 4px rgba(155,201,154,0.5), 0 0 24px rgba(155,201,154,0.5); animation: nod 0.5s ease; }
+.charm-face.cold { box-shadow: 0 0 0 4px rgba(229,154,122,0.5); animation: shake 0.45s ease; }
+@keyframes nod { 40% { transform: translateY(-6px) scale(1.05); } }
+.charm-guest b { font-family: var(--s-serif); font-size: 17px; text-align: center; line-height: 1.1; }
+.charm-owns { display: flex; gap: 4px; }
+.charm-owns i { width: 14px; height: 18px; display: block; border: 1px solid rgba(0,0,0,0.4); }
+.charm-works { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.salon .charm-work { background: var(--s-surface-2); color: var(--s-ivory); border: 2px solid; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 8px; }
+.salon .charm-work:hover:not(:disabled) { background: #432A2E; }
+.charm-work b { font-family: var(--s-serif); font-size: 16px; text-align: center; line-height: 1.15; }
+.charm-work small { color: var(--s-muted); font-size: 11px; }
+.charm-top { display: flex; align-items: center; gap: 12px; }
+.charm-who { flex: 1; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.charm-who b { font-family: var(--s-serif); font-size: 21px; }
+.charm-learned { display: flex; gap: 6px; flex-wrap: wrap; min-height: 26px; }
+.charm-learned i { font-style: normal; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; animation: pop 0.35s ease; }
+.charm-learned i.like { background: #2E4A2C; color: #CDE8C6; border: 1px solid var(--s-good); }
+.charm-learned i.hate { background: #4A2420; color: #F1C9B5; border: 1px solid var(--s-bad); }
+.charm-learned i.meh { background: var(--s-surface-2); color: var(--s-muted); border: 1px solid var(--s-line); }
+.charm-mood { position: relative; height: 18px; margin: 16px 0 6px; background: var(--s-deep); border: 1px solid var(--s-line); }
+.charm-fill { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #8A3A2E, #C9A24B, #9BC99A); transition: width 0.6s cubic-bezier(.2,1.4,.4,1); }
+.charm-goal { position: absolute; top: -6px; bottom: -6px; width: 3px; background: var(--s-gold-bright); box-shadow: 0 0 8px var(--s-gold-bright); }
+.charm-turns { display: flex; gap: 4px; justify-content: center; margin-bottom: 14px; }
+.charm-turns i { width: 22px; height: 6px; background: var(--s-gold); display: block; }
+.charm-turns i.used { background: var(--s-line); }
+.charm-hand { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.salon .charm-card {
+  aspect-ratio: 3 / 4; min-height: 0; padding: 8px; background: var(--s-ivory); color: #1A0E10;
+  border: 4px solid var(--s-gold-deep); border-radius: 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.4); animation: deal 0.45s cubic-bezier(.2,1,.3,1) both; transition: transform 0.15s;
+}
+.salon .charm-card:nth-child(2) { animation-delay: 0.07s; } .salon .charm-card:nth-child(3) { animation-delay: 0.14s; }
+.salon .charm-card:hover:not(:disabled) { background: #FFF6DE; transform: translateY(-6px); border-color: var(--s-gold); }
+.salon .charm-card.like { border-color: #6E9A6A; }
+.salon .charm-card.hate { border-color: #B8432F; }
+.cc-icon { font-size: 40px; line-height: 1; color: #6A4A1E; }
+.cc-topic { font-family: var(--s-serif); font-size: 17px; font-weight: 700; }
+.charm-result { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px; text-align: center; border: 1px solid var(--s-line); animation: unveil 0.6s ease both; }
+.charm-result b { font-family: var(--s-serif); font-size: 30px; }
+.charm-result.won b { color: var(--s-good); }
+.charm-result.lost b { color: var(--s-bad); }

@@ -29,7 +29,6 @@ import { ARTIFACT_BY_ID } from '../data/artifacts';
 import * as E from '../engine/game';
 import * as Auc from '../engine/auction';
 import * as Dig from '../engine/digboard';
-import * as Gala from '../engine/gala';
 import * as Saves from '../engine/saves';
 import * as D from '../engine/director';
 import * as Sim from '../engine/sim';
@@ -41,6 +40,7 @@ import { starterBuilding } from '../data/constants';
 import { SeasonPanel, AnnualReportPanel, HistoryPanel, TicketPresets } from './season';
 import { ArtistsTab } from './artists';
 import { LampScreen } from './lamp';
+import { CharmGala } from './gala';
 import * as Legacy from '../engine/legacy';
 import { HallOfFame, CareerCard } from './legacy';
 import { money } from '../engine/util';
@@ -301,7 +301,7 @@ function Game({
     );
   } else if (galaOpen) {
     body = (
-      <GalaScreen state={state}
+      <CharmGala state={state}
         onAccept={(artId, weeks, fee, lender) => {
           apply(E.acceptLoan(state, artId, weeks, fee, lender));
         }}
@@ -2257,174 +2257,6 @@ function ExpeditionsTab({
 /* ============================================================
    GALA SCREEN — meet guests, inspect collections, persuade
    ============================================================ */
-function GalaScreen({
-  state, onAccept, onClose,
-}: {
-  state: GameState;
-  onAccept: (artId: string, weeks: number, fee: number, lender: string) => void;
-  onClose: () => void;
-}) {
-  // guests are generated once when the gala opens
-  const [guests] = useState<Gala.Guest[]>(
-    () => Gala.makeGuests(state.specialties));
-  const [viewing, setViewing] = useState<Gala.Guest | null>(null);
-  const [convo, setConvo] = useState<Gala.Conversation | null>(null);
-  const [outcome, setOutcome] = useState<Gala.GalaOutcome | null>(null);
-  const [done, setDone] = useState(false);
-
-  // --- conversation outcome screen --------------------------
-  if (outcome) {
-    return (
-      <div className="panel">
-        <h2>{outcome.success ? 'A Loan Secured' : 'Politely Declined'}
-          <span className="sub">the conversation ends</span></h2>
-        <p className="empty-note">{outcome.message}</p>
-        {outcome.success && convo && (
-          <div className="results-grid">
-            <ItemCard artifact={ARTIFACT_BY_ID[convo.targetId]} />
-          </div>
-        )}
-        <div className="divider" />
-        <button onClick={() => {
-          if (outcome.success && convo) {
-            onAccept(convo.targetId, outcome.loanWeeks,
-              outcome.weeklyFee, convo.guest.name);
-          }
-          setDone(true);
-          setOutcome(null); setConvo(null); setViewing(null);
-        }}>
-          {outcome.success ? 'Hang the Loan & Return' : 'Return to the Gala'}
-        </button>
-      </div>
-    );
-  }
-
-  // --- after a loan is hung, or the player leaves -----------
-  if (done) {
-    return (
-      <div className="panel">
-        <h2>The Gala Ends<span className="sub">the evening is over</span></h2>
-        <p className="empty-note">
-          The guests depart. Any loan you secured now hangs in your galleries
-          — for a while.
-        </p>
-        <div className="divider" />
-        <button onClick={onClose}>Leave the Gala</button>
-      </div>
-    );
-  }
-
-  // --- the conversation mini-game ---------------------------
-  if (convo) {
-    const art = ARTIFACT_BY_ID[convo.targetId];
-    if (convo.finished) {
-      return (
-        <div className="panel">
-          <h2>{convo.guest.name}
-            <span className="sub">the conversation concludes</span></h2>
-          <p className="empty-note">{convo.lastText}</p>
-          <p className="empty-note">
-            You have made your case for {art.name}. Time to see how it landed.
-          </p>
-          <div className="divider" />
-          <button onClick={() => setOutcome(Gala.conversationOutcome(convo))}>
-            See Their Answer
-          </button>
-        </div>
-      );
-    }
-    return (
-      <div className="panel">
-        <h2>{convo.guest.name}
-          <span className="sub">
-            round {convo.round + 1} of {convo.totalRounds}
-          </span>
-        </h2>
-        <p className="empty-note">
-          {convo.guest.archetype.name} — {convo.guest.archetype.blurb}
-        </p>
-        <div className="convo-target">
-          Pursuing: <b>{art.name}</b> · {STYLES[art.style].name} ·{' '}
-          <RarityPill score={art.score} />
-        </div>
-        <div className="convo-reaction">{convo.lastText}</div>
-        <div className="divider" />
-        <div className="convo-options">
-          {convo.options.map((line, i) => (
-            <button key={i} className="convo-line"
-              onClick={() => setConvo(Gala.chooseLine(convo, line))}>
-              <span className="convo-tag">{Gala.TAG_LABEL[line.tag]}</span>
-              <span className="convo-text">"{line.text}"</span>
-            </button>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  // --- inspecting one guest's collection --------------------
-  if (viewing) {
-    return (
-      <div className="panel">
-        <h2>{viewing.name}
-          <span className="sub">{viewing.archetype.name}</span></h2>
-        <p className="empty-note">{viewing.archetype.blurb}</p>
-        <div className="divider" />
-        <div className="filter-group-label">Their Collection — choose a target</div>
-        <p className="drag-hint">
-          Pick the work you will pursue. The conversation that follows
-          decides whether they part with it.
-        </p>
-        <div className="results-grid">
-          {viewing.collection.map(id => {
-            const art = ARTIFACT_BY_ID[id];
-            return (
-              <button key={id} className="gala-target"
-                onClick={() => setConvo(
-                  Gala.startConversation(viewing, id))}>
-                <ItemCard artifact={art} />
-                <span className="gala-pick">Pursue this work</span>
-              </button>
-            );
-          })}
-        </div>
-        <div className="divider" />
-        <button className="ghost" onClick={() => setViewing(null)}>
-          Back to the Guests
-        </button>
-      </div>
-    );
-  }
-
-  // --- the guest list ---------------------------------------
-  return (
-    <div className="panel">
-      <h2>The Gala<span className="sub">work the room</span></h2>
-      <p className="empty-note">
-        These guests each hold a collection. Approach one to inspect what
-        they own and choose a piece to pursue. You may only attempt one
-        guest — choose with care.
-      </p>
-      <div className="divider" />
-      {guests.map(g => (
-        <div className="row" key={g.id}>
-          <div className="meta">
-            <div className="name">{g.name}</div>
-            <div className="info">
-              {g.archetype.name} — owns {g.collection.length} notable work(s)
-            </div>
-          </div>
-          <button onClick={() => setViewing(g)}>Approach</button>
-        </div>
-      ))}
-      <div className="divider" />
-      <button className="ghost" onClick={onClose}>Leave the Gala</button>
-    </div>
-  );
-}
-
-
-/* ---- a small SVG line chart for the weekly history -------- */
 function WeekChart({
   data, label, color, fmt,
 }: {

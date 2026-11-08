@@ -50,7 +50,7 @@ function roundsForScore(score: number): number {
   return 3;                          // Common
 }
 /** the trust threshold to secure the loan, by rarity */
-function thresholdForScore(score: number): number {
+export function thresholdForScore(score: number): number {
   if (score >= 50) return 9;
   if (score >= 20) return 7;
   return 5;
