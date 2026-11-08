@@ -1,0 +1,449 @@
+# Art Director — Game Direction Proposal
+
+> From a rented room to a world-renowned museum, and every career ends
+> with a different museum.
+
+This is a design proposal, not a changelog. It covers where the game is
+today (v0.7), what holds it back, the direction for each of the five
+goals, a list of new requirements, and a phased roadmap.
+
+---
+
+## 1. Where the game stands (v0.7)
+
+### What's already strong
+- **A great catalogue.** About 610 real, hand-written works across 13
+  styles, plus 300 procedural commons. This is the game's biggest asset
+  and most of it goes unused.
+- **The opening.** The grandparent's will and the cousins who inherit
+  the two works you leave behind is a good story hook.
+- **Several acquisition channels**, each with its own mini-game:
+  real-time auctions, a dig board, gala conversations and a black market
+  with authentication.
+- **An exhibition model** with themed rooms, cohesion between works,
+  a curatorial thesis, decor and interpretation.
+- **A world.** City districts, building moves, several museums, rivals
+  and rankings against real-inspired institutions.
+
+### What holds it back
+I measured these with a headless 52-week simulation using the engine.
+
+| # | Problem | Evidence |
+|---|---------|----------|
+| 1 | **Fame has no ongoing engine.** It only goes up as a one-off bump when you acquire a work. Visitors, exhibitions and reviews never add fame. | Passive year: fame 0 → 0. The cousins reached 54, 95 and 116 on fixed scripts. |
+| 2 | **Money barely moves.** Revenue is about §2.0k a week against §1.75k upkeep. Cash went from §50k to §57k over a year. No pressure means no tactics. | `advanceWeek` sim |
+| 3 | **Few exciting moments.** The starter house offered 176 commons, 5 uncommons and 1 rare in a year. Epics and Legends need 600 fame, which is unreachable if fame doesn't grow. | `rollEvents` sample |
+| 4 | **Systems look connected but aren't.** Thesis, decor style, assigned curators and style research feed `detailedRoomRatings`, which only the UI reads. Visitors and revenue use the simpler `roomRatings`. | `director.ts` vs `game.ts:dailyVisitors` |
+| 5 | **No sense of "how far we've come".** History keeps the last 12 weeks only. | `history.slice(-12)` |
+| 6 | **Every museum plays the same.** Districts only change visitor numbers by ±12%. Styles are reskins. The best strategy is always "hang the highest score". | `districtMult`, `artifactDailyDraw` |
+| 7 | **Breadth over depth.** 9 nav destinations, 4 mini-games with their own currencies (shards, patience, bombs, dossiers), and many exact-money knobs: ticket §, three upgrade tracks per room, sponsor terms. | UI |
+| 8 | **No career arc.** Play is open-ended with no week cap. `finalScore` exists but nothing triggers it. The README still says "50-week". | `advanceWeek` |
+
+**Summary:** most of the pieces are already there. The next step is to
+connect and deepen the systems, not add more of them.
+
+---
+
+## 2. The direction in one paragraph
+
+You are the **Director**. A **career** runs about 25 in-game years, in
+**seasons**. Each season you make a few weighty decisions: what to
+acquire, what to exhibit, where the budget goes, and which initiatives
+your limited staff pursue. Then you watch the season play out, with
+interruptions for auctions, discoveries and crises. Your museum climbs a
+**league ladder** (City → National → World) with promotion moments and
+an **Annual Report** that shows how far you've come. *Where* you found
+the museum, *what* you collect and *how* you fund it give each career a
+different identity. A finished career goes into a Hall of Fame and the
+next one starts in a freshly generated city.
+
+---
+
+## 3. Pillar 1: Collectibles and excitement
+
+The aim is for a Legend to feel like signing a star player, and for a
+sleeper discovery to feel like your academy kid turning into a
+world-beater.
+
+### 3.1 Make every work more than a score
+Add three light attributes to `Artifact`. They are generated per career
+for the handcrafted works, so no data entry is needed.
+
+- **Attribution:** `Confirmed` / `Attributed to` / `Workshop of` /
+  `Circle of`. Lower attribution means a much lower price and draw. Research
+  can **upgrade** it.
+- **Condition:** `Pristine` / `Good` / `Needs conservation`. Conservation
+  costs a season of the work being off the wall, and then it shines.
+- **Provenance:** `Clean` / `Gaps` / `Disputed`. Disputed works bring
+  scandal risk and repatriation claims. This folds the black market into
+  the main game.
+
+### 3.2 The sleeper mechanic
+The most exciting moment a collector has is **finding** a masterpiece,
+not buying one.
+
+- Some lots are *"Circle of Caravaggio, oil on canvas, §4,000"*.
+- A researcher assigned to it for a season may come back with **"It's a
+  Caravaggio."** The work's score jumps to its true value, with a headline
+  and a visitor spike.
+- Most come back as "workshop piece, pleasant". The odds depend on your
+  scholars' expertise in that style.
+- This reuses the black-market dossier UI and gives research a purpose
+  you can feel.
+
+### 3.3 A Catalogue with silhouettes
+The vault currently shows owned works only. Add a **Catalogue** view per
+style: *"Renaissance — 7 of 64 known works"*, with silhouettes for
+missing works and a hint of where each might surface. Nearly 600 real
+works make this a strong long-term collection goal.
+
+### 3.4 Sets and series
+Group works into named **sets**: an artist (5 Vermeers), a series (the
+Hokusai views), or an assemblage (Book of Hours leaves, Terracotta
+guard). Completing a set gives a named bonus, such as *"The Vermeer
+Room" +prestige*, plus a Catalogue badge. Rivals may own the piece you
+need, which leads to trade or loan negotiations.
+
+### 3.5 Anticipation, not just supply
+- **Market rumours:** *"The Delacroix estate is expected at The
+  Belvedere Rooms in ~6 weeks."* You decide whether to save up, sell
+  something, or court a donor. Anticipation is half the fun.
+- **A guaranteed headline lot** every season at your league's top house,
+  plus a soft pity timer so rarity rolls never leave you dry for a year.
+- **Named rival bidders.** Cousin Marchetti bids on Baroque works
+  because that's their focus. Losing a Legend to them and then seeing it
+  in their museum's ranking creates a real rivalry.
+
+### 3.6 The reveal
+- When the hammer falls, show a **card reveal** with rarity colour,
+  frame and catalogue number.
+- Your first Epic, first Legend and first World Icon each get a
+  full-screen **press moment**, a newspaper front page, and a marker on
+  the progression chart.
+- **Images:** most works before about 1900 are public domain (Wikimedia
+  Commons). Even 100 images for the Rare+ works would change how the
+  game feels. Use stylised frames for works still under copyright.
+
+### 3.7 The Signature Work
+Each museum chooses one **Signature Work** for its poster. It drives
+tourist demand and appears on the title card, in the Annual Report and
+in the Hall of Fame. Replacing it with something better is a milestone.
+
+---
+
+## 4. Pillar 2: Progression you can see
+
+### 4.1 Keep the whole career
+- Keep full history: weekly for the current year, then compressed to
+  monthly.
+- Track more than visitors: size (rooms and works on display),
+  collection value, average art quality, the three reputations
+  (§5.2), league rank and staff count.
+
+### 4.2 The Annual Report (the "season recap")
+At each year's end, show one page (FBGM's season summary):
+- Year-over-year table: **Year 1 → Year N** for visitors/day, rooms,
+  works, collection value and rank.
+- Acquisition of the Year, Exhibition of the Year, best and worst
+  decision.
+- **Critic review**: a 1–5 star score plus a short quote, e.g.
+  *"A small museum with a big Vermeer."*
+- Awards: Museum of the Year (city, national or world), Best New
+  Exhibition, Discovery of the Year.
+
+### 4.3 Then vs Now
+- A side-by-side of the **floor plan from Year 1** and the plan today.
+- A **building exterior** that changes per tier, from shopfront to
+  civic hall to palace.
+- A **Museum History** page listing every year, like FBGM's team
+  history page.
+
+### 4.4 Milestones
+Examples: first 100 visitors/day, first Epic, first move, first
+international loan, first completed set, promoted to National, entered
+the World Top 50. Each one is logged with its date, so the timeline
+reads like a chronicle.
+
+---
+
+## 5. Pillar 3: Management at the core
+
+The goal is meaningful choices with a few resources, not accounting.
+
+### 5.1 Four resources, each scarce in a different way
+
+| Resource | What it is | Why it's scarce |
+|----------|-----------|-----------------|
+| **Budget** | Money, split into a few budget lines per season | Revenue must exceed upkeep, and acquisitions compete with operations |
+| **Space** | Wall slots and rooms | Better works compete for the same walls, so storage, rotation and lending all matter |
+| **Staff time** | Initiatives per season (start at 2, grow to about 6) | Each initiative uses one: research an attribution, court a donor, run a campaign, send an expedition, negotiate a loan |
+| **Reputation** | Three tracks (below) | You can't max all three, so you choose an identity |
+
+**Initiatives** are the key addition. They turn "do everything every
+week" into "pick three things this season".
+
+### 5.2 Split fame into three reputations
+
+| Reputation | Earned by | Unlocks |
+|------------|-----------|---------|
+| **Prestige** (critics, scholars) | Quality, research, scholarly catalogues, sets | Top auction houses, museum loans, grants, academic partners |
+| **Popularity** (public, tourists) | Visitors, blockbusters, the Signature Work, marketing | Ticket and retail revenue, corporate sponsors |
+| **Patronage** (donors, collectors) | Galas, memberships, naming rights, trust | Donations, bequests, endowment, gala loans |
+
+**League rank** is a weighted mix of the three, so different museums can
+all rise, by different routes. The three also make fame **ongoing**:
+every season the museum earns reputation from what it is, not only from
+what it just bought.
+
+### 5.3 The season loop (replaces "do everything every week")
+1. **Plan (one screen):**
+   - Budget split across Acquisitions, Exhibitions & Education,
+     Marketing, Operations and Reserves (5 sliders).
+   - Choose the season's featured exhibition.
+   - Spend your initiatives.
+2. **Play:** weeks run automatically, with **"Sim to next event"** and
+   **"Sim to end of season"** buttons. Auctions, discoveries, rumours,
+   crises and offers interrupt.
+3. **Review:** a delta report with causes, e.g. *"Visitors +14%: new
+   Turner (+9%), spring campaign (+5%). Prestige −2: off-theme hang in
+   Room 3."*
+
+### 5.4 Tactical tradeoffs to design for
+- One masterpiece **or** three rooms of solid works.
+- Free admission (popularity and donations) **or** paid (cash).
+- **Deaccession** a duplicate to fund a Legend, at a cost in patronage
+  ("donors hate it").
+- **A loaned blockbuster** (a big temporary spike) **or** a permanent
+  acquisition (slower but lasting).
+- **Research** (slow prestige, possible sleeper discoveries) **or**
+  **marketing** (fast popularity that fades).
+- **Lend your star** to a world museum for a season: you lose the draw,
+  but gain prestige and a favour back.
+- **Move to a bigger building** (more space and prestige) while upkeep
+  roughly triples.
+
+### 5.5 Connect what exists
+- **One rating model.** Make `detailedRoomRatings` feed visitors and
+  reputation, and delete the duplicate `roomRatings` path.
+- **Rivals live in the market.** They bid, buy, lend and grow based on
+  what they acquired, not on fixed scripts.
+- **The mini-games stay, but cost initiatives**, and all of them pay
+  into the same few outcomes: works, reputation and money. Retire
+  shard currencies in favour of "partial finds" that you can research
+  into a full work.
+
+---
+
+## 6. Pillar 4: Replayability through museum identity
+
+The FBGM parallel: a new team, a new league and a new style of play.
+Here, each career's identity comes from **District × Focus × Funding
+model × Founder**.
+
+### 6.1 Founding draft (start of career)
+1. **Founder background**, which sets starting resources and one perk:
+   - *Heir*: the inheritance work, rivals are cousins (today's opening).
+   - *Academic*: university ties, faster research, low cash.
+   - *Entrepreneur*: high cash, strong sponsor deals, low prestige.
+   - *Artist*: living-artist network, cheap commissions.
+   - *Collector*: three modest works, plus galas unlocked early.
+2. **District**, which now has a rule twist, not a ±12% multiplier.
+3. **Focus**: a style, or a cross-style theme such as *Antiquities*,
+   *Old Masters*, *Modern & Contemporary* or *World Cultures*.
+
+### 6.2 Districts with real rules
+
+| District | Audience | Twist |
+|----------|----------|-------|
+| **Financial** | Professionals, corporate | Sponsors are plentiful; **shop, café and events can out-earn tickets**; the contemporary market is hot; works' fame matters less than experience |
+| **Academic / College** | Students, scholars, international researchers | Research ×2, **grants instead of sponsors**, low ticket tolerance, **excavation partnerships** with the university |
+| **Historic** | Tourists | Heritage buildings carry prestige but **limited expansion**; heavy seasonal tourism |
+| **Art District** | Collectors, critics | Galas are frequent and the best houses are nearby; **rivals are strongest here** |
+| **Bohemian** | Artists, young locals | Cheap space, **artist residencies**, works by living artists appreciate faster |
+| **Waterfront** | Nightlife, families | Huge, cheap space; **immersive and event** exhibitions; flood and insurance events |
+| **Park** | Families, locals | Sculpture garden; strong membership; slow but steady |
+
+### 6.3 Each museum type has its own acquisition channel
+
+| Museum type | Main channel | Feel |
+|-------------|-------------|------|
+| **Archaeological** | Expeditions and excavation permits; university partnerships; **repatriation claims** as an ethical risk | Long bets, legendary finds |
+| **Old Masters** | Auctions, estates and bequests | Bidding wars, sleeper attributions |
+| **Contemporary** | **Living-artist commissions and residencies** | Scouting and player development (below) |
+| **Pop culture / design** | Donations, fan collections, licensing | Retail-heavy, fast popularity |
+| **World cultures** | Loans and exchanges with other museums | Diplomacy, partnerships |
+
+### 6.4 Living artists (the "draft and development" system)
+This is FBGM's player development applied to art, and it's the system
+your financial-district example needs.
+
+- A procedural pool of **emerging artists**, each with a style, a
+  current reputation and a hidden **potential**.
+- You **commission** works cheaply, **host residencies** (one per
+  season, costing an initiative) and give them **solo shows**.
+- Artists' careers rise, plateau, scandalise or break out over the
+  years. **Works by artists who break out are revalued**: a §3k
+  commission from Year 2 can become a Legend by Year 15.
+- An artist "you discovered" who becomes world-famous is a career
+  highlight, with Annual Report awards and a Hall of Fame entry.
+- Rivals scout the same artists, so you compete to sign them.
+
+### 6.5 Funding models
+Revenue mix is part of identity and can be read in the Annual Report:
+
+- **Ticket-led:** tourist museums.
+- **Membership-led:** local and park museums.
+- **Retail and events-led:** financial and waterfront museums.
+- **Grants and endowment-led:** academic and prestige museums.
+
+Each model reacts to different decisions. That gives two careers a
+visibly different revenue pie, which shows the game really did play out
+differently.
+
+### 6.6 Career end and the next career
+- **Career length** is chosen at start: 15 years (short), 25 (standard)
+  or Endless.
+- **Retirement** produces a career summary, a legacy score and a **Hall
+  of Fame** entry with the museum name, signature work, peak rank, best
+  discovery and a floor-plan thumbnail.
+- **New world each career:** a generated city name, district layout
+  (not every city has every district), rival museums with their own
+  focus, and a market shuffle (which works are "in circulation").
+- **Legacy:** your past museums appear as institutions in the world
+  rankings of later careers, and can lend to you.
+- **Scenarios** (later): *Rescue a bankrupt museum*, *No inheritance*,
+  *The Repatriation Crisis*.
+
+---
+
+## 7. Pillar 5: Complexity at the FBGM level, not Football Manager
+
+**Rule of thumb:** the player sets direction, the sim does the
+arithmetic, and the report explains the results.
+
+| Today | Proposed |
+|-------|----------|
+| Exact ticket price in § | 4 presets: Free / Low / Standard / Premium |
+| 3 upgrade tracks × 3 levels per room | One **Presentation tier** per room (Basic → Fine → Landmark), plus the decor style choice |
+| Sponsor cash amounts and term weeks | "Sign a sponsor: Small / Major / Naming rights" with clear effects |
+| Weekly clicking | Season planning plus "Sim to next event / end of season" |
+| 9 nav destinations | **4 hubs:** Museum (floor and exhibitions) · Acquire (auctions, dealers, digs, galas, artists) · Institution (staff, research, budget) · World (city, league, rivals, history) |
+| Hidden formulas | **Every number has a "why"** tooltip listing its top 3 contributors |
+
+You should still be able to see that a decision made a difference. The
+review screen's cause-and-effect deltas are the single most important
+UI addition for this pillar.
+
+---
+
+## 8. New requirements
+
+### Foundation (fix before adding)
+- **R1** One room rating model drives visitors, revenue and reputation.
+- **R2** Reputation (prestige, popularity, patronage) accrues every week
+  from operations, not only from acquisitions.
+- **R3** Keep full career history (weekly for the current year, monthly
+  before that).
+- **R4** Rivals take part in auctions and grow from what they acquire.
+- **R5** Rarity supply follows a designed curve: a headline lot per
+  season and a pity timer.
+- **R6** "Sim to next event" and "Sim to end of season" controls.
+- **R7** Break even by about week 8 when playing sensibly. Running at a
+  loss is possible when the player overreaches, and is never an
+  automatic death spiral.
+
+### Collectibles
+- **R8** Works carry attribution, condition and provenance, generated
+  per career.
+- **R9** Attribution research can upgrade a work (the sleeper mechanic).
+- **R10** A Catalogue with silhouettes for unowned works, and per-style
+  completion.
+- **R11** Sets with named bonuses.
+- **R12** Market rumours announce headline lots in advance.
+- **R13** A card reveal on acquisition, and a press moment for a first
+  Epic, Legend or World Icon.
+- **R14** Choosing a Signature Work.
+- **R15** Images for at least the Rare and higher public-domain works.
+
+### Progression
+- **R16** An Annual Report with a year-over-year table, critic review
+  and awards.
+- **R17** A League ladder (City → National → World) with promotion
+  events.
+- **R18** Museum History and milestone timeline pages.
+- **R19** A Year 1 vs now floor-plan comparison, and a building exterior
+  per tier.
+
+### Management
+- **R20** A season loop: Plan, then Play, then Review.
+- **R21** Budget lines as season sliders.
+- **R22** Initiatives as a limited resource that grows with staff.
+- **R23** A review screen with cause-and-effect deltas.
+- **R24** Simplified knobs: ticket presets, Presentation tier, sponsor
+  tiers.
+- **R25** Navigation in 4 hubs.
+
+### Identity and replayability
+- **R26** A founding draft: background, district and focus.
+- **R27** District rule twists (§6.2).
+- **R28** A main acquisition channel per museum type (§6.3).
+- **R29** Living artists with potential, commissions, residencies and
+  revaluation.
+- **R30** Funding models with a visible revenue mix.
+- **R31** Choice of career length, retirement and a Hall of Fame.
+- **R32** A generated city and rival set per career, and legacy museums
+  that appear in later careers.
+
+---
+
+## 9. Roadmap
+
+Each phase should be playable at the end.
+
+| Phase | Theme | Contents | Why this order |
+|-------|-------|----------|----------------|
+| **v0.8** | *Make it breathe* | R1–R7 | Nothing else matters until fame grows, money has pressure and systems are connected |
+| **v0.9** | *The thrill* | R8–R15 | Collectible excitement is the hook, and it reuses the 610-work catalogue |
+| **v1.0** | *A career* | R16–R25 | Seasons, the Annual Report and the league ladder make it a game with an arc |
+| **v1.1** | *Identity* | R26–R28, R30 | District twists and acquisition channels give each run its own shape |
+| **v1.2** | *Living artists* | R29 | The largest new system; it powers contemporary and financial-district runs |
+| **v1.3** | *Legacy* | R31–R32 | New careers, a Hall of Fame and generated worlds, the FBGM "one more career" loop |
+
+### What to cut or fold in
+- Shard currencies are replaced by research on partial finds.
+- Three room upgrade tracks become one Presentation tier.
+- Separate Research and Style Research merge into one knowledge tree per
+  style, which also unlocks attribution research.
+- Galas, black market and digs stay, but they live under **Acquire**
+  and cost initiatives.
+- Multiple simultaneous museums move to late game or are cut. One
+  growing institution with branches (a "satellite" in another district)
+  is easier to read.
+
+### Naming
+The repo is *Art Director* and the in-game title is *Museum Wars*. Pick
+one. *Art Director* fits the "you are the director, making calls"
+direction better.
+
+---
+
+## 10. Two example careers (the target experience)
+
+**"The Exchange", Financial District, Contemporary, Entrepreneur.**
+Year 1: a glass lobby, two rooms, a café that earns more than tickets.
+You commission three unknown painters. Year 6: one of them, Ilse Moreau,
+wins a major prize, and your §3k canvas is revalued as an Epic. Year 12:
+the shop and events line is 55% of revenue, Popularity is high, Prestige
+is middling, and you are national #8. The Annual Report's revenue pie
+is mostly orange (retail).
+
+**"The Meridian Institute", Academic District, Antiquities, Academic.**
+Year 1: one rare stela and a university partnership. You spend your
+initiatives on excavation permits and attribution research. Year 4: a
+"Circle of" bronze turns out to be a lost Classical original, and you
+get a front page. Year 9: a repatriation claim forces a choice between
+returning a Legend (Prestige +, collection −) or fighting it (scandal
+risk). Year 20: World #31 on Prestige alone, with grants and endowment
+as the main revenue. Visitors are fewer but come from 40 countries.
+
+The same game, the same 25 years, two very different museums.
