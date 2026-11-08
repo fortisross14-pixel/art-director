@@ -1,7 +1,8 @@
 import type { GameState, Room, StyleId } from '../data/types';
 import { STYLES, districtOfBuilding, STATIC_MUSEUMS } from '../data/constants';
-import { activeMuseum, museumById, initiativeError, spendInitiative, districtRules, researchWeeksSaved } from './game';
+import { activeMuseum, museumById, initiativeError, spendInitiative, districtRules, researchWeeksSaved, roomName } from './game';
 import { roomRatings, DECOR } from './ratings';
+import { thesesKnown } from './research';
 import type { ThesisId } from './ratings';
 import { money, uid } from './util';
 
@@ -42,7 +43,18 @@ export function roomPerformance(s:GameState, room:Room){
 }
 
 function clone(s:GameState):GameState{return JSON.parse(JSON.stringify(s));}
-export function setRoomThesis(s:GameState,roomId:number,thesis:ThesisId){const n=clone(s); const r=activeMuseum(n).rooms.find(x=>x.id===roomId); if(r)r.thesis=thesis; return n;}
+/** change a room's thesis; it has to have been researched. "No thesis" also drops the room's style. */
+export function setRoomThesis(s:GameState,roomId:number,thesis:ThesisId):{state:GameState;error?:string}{
+ if(!thesesKnown(s).includes(thesis)) return {state:s,error:'Research that thesis first (Office → Research).'};
+ const n=clone(s); const r=activeMuseum(n).rooms.find(x=>x.id===roomId); if(!r) return {state:s,error:'No such room.'};
+ if(thesis==='movement'&&!r.theme) return {state:s,error:'A style survey needs a style.'};
+ r.thesis=thesis; if(thesis==='none') r.theme=null; return {state:n};}
+/** make a room a survey of one style */
+export function setRoomStyle(s:GameState,roomId:number,style:StyleId):{state:GameState;error?:string}{
+ if(!s.specialties.includes(style)) return {state:s,error:'Research that style first.'};
+ if(!thesesKnown(s).includes('movement')) return {state:s,error:'Research the Style survey thesis first.'};
+ const n=clone(s); const r=activeMuseum(n).rooms.find(x=>x.id===roomId); if(!r) return {state:s,error:'No such room.'};
+ r.theme=style; r.thesis='movement'; return {state:n};}
 export function setRoomDecor(s:GameState,roomId:number,decor:keyof typeof DECOR){const n=clone(s); const r=activeMuseum(n).rooms.find(x=>x.id===roomId); if(r)r.decorStyle=decor; return n;}
 export function assignRoomStaff(s:GameState,roomId:number,role:'curator'|'researcher',id:string|null){const n=clone(s); const r=activeMuseum(n).rooms.find(x=>x.id===roomId); if(r){if(role==='curator')r.assignedCuratorId=id;else r.assignedResearcherId=id;} return n;}
 
@@ -61,7 +73,7 @@ export function progressDirectorSystems(s:GameState):GameState{
  n.temporaryExhibitions=(n.temporaryExhibitions||[]).map(x=>({...x,weeksLeft:x.weeksLeft-1})).filter(x=>x.weeksLeft>0);
  const seg=visitorSegments(n); const visitors=Object.values(seg).reduce((a,b)=>a+b,0); n.memberships=Math.max(0,(n.memberships||0)+Math.round(seg.members/35*districtRules(activeMuseum(n)).membershipMult)-Math.round((n.memberships||0)*.015)); const revenue=n.lastRevenue; const expenses=n.lastExpenses;
  const notes:string[]=[]; const rooms=activeMuseum(n).rooms.filter(r=>r.unlocked&&r.items.length);
- if(rooms.length){const weakest=rooms.map(r=>({r,d:detailedRoomRatings(n,r)})).sort((a,b)=>a.d.visitorAppeal-b.d.visitorAppeal)[0]; if(weakest.d.attractiveness<50)notes.push(`${STYLES[weakest.r.theme!].name} is losing visitors because its presentation is weak.`); if(weakest.d.interpretation<35)notes.push('Visitors want more labels, audio guidance, and context.');}
+ if(rooms.length){const weakest=rooms.map(r=>({r,d:detailedRoomRatings(n,r)})).sort((a,b)=>a.d.visitorAppeal-b.d.visitorAppeal)[0]; if(weakest.d.attractiveness<50)notes.push(`${roomName(weakest.r)} is losing visitors because its presentation is weak.`); if(weakest.d.interpretation<35)notes.push('Visitors want more labels, audio guidance, and context.');}
  n.weeklyReport={visitors,revenue,expenses,profit:revenue-expenses,headline:revenue>=expenses?'The museum finished the week in surplus.':'Operating costs exceeded income this week.',notes,segments:seg};
  return n;
 }

@@ -292,6 +292,24 @@ export interface Museum {
   wings?: number;                 // wings added to a flagship building
 }
 
+export interface ResearchProject {
+  id: string;
+  kind: 'style' | 'thesis' | 'dig';
+  key: string;            // style id, thesis id, or expedition tier
+  weeksLeft: number;
+  weeksTotal: number;
+}
+export interface SocietyMember {
+  id: string;
+  name: string;
+  archetype: number;                 // index into GUEST_ARCHETYPES
+  taste: Record<string, number>;     // topic -> 2 loves, 1 polite, 0 bored, -1 offended
+  known: Record<string, number>;     // what you've learned so far
+  met: number;                       // galas you've talked at length
+  collection: string[];              // works they could lend
+  lent?: number;                     // loans they've agreed to
+}
+
 export interface StyleResearchState {
   level: number;
   points: number;
@@ -359,6 +377,18 @@ export interface GameState {
   // owned ids that are salvage-only (forgeries) — cannot exhibit
   salvageOnly: string[];
   styleResearch?: Partial<Record<StyleId, StyleResearchState>>;
+  /** knowledge of each style, 0 (unknown) .. 5 (world authority) */
+  knowledge?: Partial<Record<StyleId, number>>;
+  /** research projects under way */
+  researchProjects?: ResearchProject[];
+  /** curatorial theses the museum has researched ('none' always) */
+  thesesKnown?: string[];
+  /** expedition sizes the museum knows how to run */
+  digTiers?: ExpeditionTier[];
+  /** living artists the museum has discovered */
+  artistsKnown?: string[];
+  /** the people met at galas, with what you've learned about them */
+  society?: SocietyMember[];
   temporaryExhibitions?: TemporaryExhibition[];
   memberships?: number;
   museumRelations?: Record<string, number>;

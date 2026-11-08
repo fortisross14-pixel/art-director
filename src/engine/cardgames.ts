@@ -14,7 +14,7 @@
    DEALER (bluff)  Six face-down evidence cards that follow from the
      work's hidden verdict. Flip three, then pay, counter or walk.
    ============================================================ */
-import type { ExpeditionTier, GameState } from '../data/types';
+import type { ExpeditionTier, GameState, SocietyMember } from '../data/types';
 import type { ConverseTag } from '../data/gala';
 import type { Guest } from './gala';
 import type { BlackMarketOffer, PurchaseOutcome } from './blackmarket';
@@ -73,9 +73,11 @@ export function galaDeck(s: GameState): GalaCard[] {
 
 export const galaGoal = (score: number) => (score >= 50 ? 17 : score >= 20 ? 13 : 9);
 
-export function startGala(s: GameState, guest: Guest, targetId: string): GalaGame {
+/** start a conversation; a society member brings fixed tastes and what you already know */
+export function startGala(s: GameState, guest: Guest, targetId: string, member?: SocietyMember): GalaGame {
   const taste = {} as Record<GalaTopic, number>;
   for (const t of Object.keys(TOPIC_NAME) as GalaTopic[]) {
+    if (member && member.taste[t] !== undefined) { taste[t] = member.taste[t]; continue; }
     if (t === 'wit') { taste[t] = 1; continue; }
     taste[t] = guest.archetype.likes.includes(t as ConverseTag) ? 2
       : guest.archetype.dislikes.includes(t as ConverseTag) ? -1 : Math.random() < 0.65 ? 1 : 0;
@@ -84,7 +86,7 @@ export function startGala(s: GameState, guest: Guest, targetId: string): GalaGam
   const art = ARTIFACT_BY_ID[targetId];
   return {
     guestName: guest.name, targetId, goal: galaGoal(art?.score || 0),
-    deck: deck.slice(5), hand: deck.slice(0, 5), taste, known: {},
+    deck: deck.slice(5), hand: deck.slice(0, 5), taste, known: { ...(member?.known || {}) } as GalaGame['known'],
     charm: 0, plays: 5, discards: 3, wit: false, last: null,
   };
 }

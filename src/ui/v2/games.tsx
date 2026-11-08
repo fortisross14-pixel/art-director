@@ -4,11 +4,11 @@
    three trenches) and the Dealer (flip evidence, then decide).
    ============================================================ */
 import { useState } from 'react';
-import type { Expedition, GameState } from '../../data/types';
+import type { Expedition, GameState, SocietyMember } from '../../data/types';
 import { ARTIFACT_BY_ID } from '../../data/artifacts';
 import { rarityForScore } from '../../data/constants';
 import * as E from '../../engine/game';
-import * as Gala from '../../engine/gala';
+import * as Soc from '../../engine/society';
 import * as BM from '../../engine/blackmarket';
 import * as C from '../../engine/cardgames';
 import * as W from '../../engine/weekly';
@@ -20,8 +20,21 @@ const initials = (name: string) => name.replace(/^(Lady|Baron|Mme\.|Sir|Contessa
 
 /* ============================ GALA ============================ */
 export function GalaGame({ state, apply, onClose }: { state: GameState; apply: Apply; onClose: () => void }) {
-  const [guests] = useState(() => Gala.makeGuests(state.specialties));
-  const [guest, setGuest] = useState<Gala.Guest | null>(null);
+  // the circle is pinned for this evening, so what you learn is saved against the same people
+  const [base] = useState(() => ({ ...state, society: Soc.ensureSociety(state) }));
+  const [members] = useState(() => Soc.galaGuests(base));
+  const [member, setMember] = useState<SocietyMember | null>(null);
+  const guest = member ? Soc.asGuest(member) : null;
+  const tasteChips = (known: Record<string, number>) => (Object.keys(C.TOPIC_NAME) as C.GalaTopic[]).filter(t => t !== 'wit' && known[t] !== undefined)
+    .map(t => <span key={t} className={known[t] >= 2 ? 'love' : known[t] === 1 ? 'ok' : 'bad'}>{C.TOPIC_NAME[t]} <b>{known[t] >= 2 ? '×2' : known[t] === 1 ? '×1' : known[t] === 0 ? '×0' : '−1'}</b></span>);
+  /** leave the gala, keeping what you learned about them */
+  const finish = (loan: { weeks: number; fee: number } | null) => {
+    if (member && g) {
+      const s2 = Soc.recordGala({ ...state, society: base.society }, member.id, g, !!loan);
+      apply(loan ? E.acceptLoan(s2, g.targetId, loan.weeks, loan.fee, g.guestName) : { state: s2 });
+    }
+    onClose();
+  };
   const [g, setG] = useState<C.GalaGame | null>(null);
   const [sel, setSel] = useState<number | null>(null);
   const [claimed, setClaimed] = useState(false);
@@ -31,13 +44,15 @@ export function GalaGame({ state, apply, onClose }: { state: GameState; apply: A
       <div className="kicker">A society gala</div>
       <h2>Who will you charm?</h2>
       <div className="v2-guests">
-        {guests.map(x => (
-          <button key={x.id} onClick={() => setGuest(x)}>
+        {members.map(x => (
+          <button key={x.id} onClick={() => setMember(x)} className={x.met ? 'met' : ''}>
             <span className="v2-face">{initials(x.name)}</span><b>{x.name}</b>
             <span className="v2-owns">{x.collection.map(id => <i key={id} style={{ background: rarityForScore(ARTIFACT_BY_ID[id].score).hex }} />)}</span>
+            <small className="v2-metline">{x.met ? `Met ${x.met}× · you know ${Soc.knownCount(x)} of 8 tastes` : 'New face'}</small>
+            {x.met > 0 && <span className="v2-tastes mini">{tasteChips(x.known)}</span>}
           </button>))}
       </div>
-      <button className="ghost v2-wide" onClick={onClose}>Leave the gala</button>
+      <button className="ghost v2-wide" onClick={() => { apply({ state: { ...state, society: base.society } }); onClose(); }}>Leave the gala</button>
     </div>
   );
 
@@ -49,12 +64,13 @@ export function GalaGame({ state, apply, onClose }: { state: GameState; apply: A
         {guest.collection.map(id => {
           const a = ARTIFACT_BY_ID[id];
           const band = rarityForScore(a.score);
-          return <button key={id} style={{ borderColor: band.hex }} onClick={() => setG(C.startGala(state, guest, id))}>
+          return <button key={id} style={{ borderColor: band.hex }} onClick={() => setG(C.startGala(state, guest, id, member!))}>
             <Thumb artifact={a} size="lg" /><b>{a.name}</b><span className={'pill ' + band.cls}>{band.name}</span>
             <small>Charm needed: {C.galaGoal(a.score)}</small></button>;
         })}
       </div>
-      <button className="ghost v2-wide" onClick={() => setGuest(null)}>← Another guest</button>
+      {member!.met > 0 && <><div className="v2-label" style={{ marginTop: 12 }}>What you remember about them</div><div className="v2-tastes">{tasteChips(member!.known)}</div></>}
+      <button className="ghost v2-wide" onClick={() => setMember(null)}>← Another guest</button>
     </div>
   );
 
@@ -86,8 +102,9 @@ export function GalaGame({ state, apply, onClose }: { state: GameState; apply: A
           <b>{result.success ? 'A loan secured!' : 'Politely declined'}</b>
           {result.success && <span>{art.name} · {result.loanWeeks} weeks · {money(result.weeklyFee)}/week</span>}
           <button onClick={() => {
-            if (result.success && !claimed) { setClaimed(true); apply(E.acceptLoan(state, g.targetId, result.loanWeeks, result.weeklyFee, g.guestName)); }
-            onClose();
+            if (claimed) return;
+            setClaimed(true);
+            finish(result.success ? { weeks: result.loanWeeks, fee: result.weeklyFee } : null);
           }}>{result.success ? 'Hang it in a gallery' : 'Leave'}</button>
         </div>}
       </div>

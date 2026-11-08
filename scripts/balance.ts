@@ -9,6 +9,8 @@ import type { Background, GameState, StyleId } from '../src/data/types';
 import * as E from '../src/engine/game';
 import * as Auc from '../src/engine/auction';
 import { stepWeek } from '../src/engine/sim';
+import * as R from '../src/engine/research';
+import { roomFocus } from '../src/engine/ratings';
 import { ensureSeason, leagueRank } from '../src/engine/season';
 import { ARTIFACT_BY_ID } from '../src/data/artifacts';
 import { randInt } from '../src/engine/util';
@@ -32,7 +34,7 @@ function unplaced(s: GameState): string[] {
 function hasWall(s: GameState, style: string): boolean {
   const mus = E.activeMuseum(s);
   const waiting = unplaced(s).filter(id => ARTIFACT_BY_ID[id].style === style).length;
-  const free = mus.rooms.filter(r => r.unlocked && r.theme === style)
+  const free = mus.rooms.filter(r => r.unlocked && (r.theme === style || !r.theme))
     .reduce((n, r) => n + (5 - r.items.length), 0);
   const canOpen = mus.rooms.some(r => !r.unlocked)
     && s.funds > E.roomCost(s) + s.lastExpenses * RESERVE_WEEKS;
@@ -171,9 +173,12 @@ function channels(s: GameState): GameState {
     if (pickA && s.funds > s.lastExpenses * RESERVE_WEEKS * 2) s = E.commissionWork(s, pickA.id).state;
   }
   if (E.museumTypeOf(s) === 'archaeological' && E.expeditionsActive(s).length === 0) {
-    const tier = s.funds > 400000 ? 'epic' : s.funds > 200000 ? 'rare' : s.funds > 80000 ? 'uncommon' : 'common';
+    const want = s.funds > 400000 ? 'epic' : s.funds > 200000 ? 'rare' : s.funds > 80000 ? 'uncommon' : 'common';
+    const order = ['common', 'uncommon', 'rare', 'epic'] as const;
+    const tier = order.slice(0, order.indexOf(want) + 1).filter(t => R.digTiers(s).includes(t)).pop() || 'common';
+    const where = s.specialties.find(st => R.knowledgeOf(s, st) >= R.DIG_KNOWLEDGE) || s.specialties[0];
     if (s.funds > E.expeditionCost(s, tier) + s.lastExpenses * RESERVE_WEEKS)
-      s = E.commissionExpedition(s, tier, s.specialties[0], null).state;
+      s = E.commissionExpedition(s, tier, where, null).state;
   }
   return s;
 }
@@ -189,16 +194,47 @@ function staffAndResearch(s: GameState): GameState {
     const c = s.candidates.find(x => x.role === role);
     if (c && s.funds > c.wage * 4 + s.lastExpenses * RESERVE_WEEKS * 2) { s = E.hireStaff(s, c.id).state; break; }
   }
-  const tier = E.researchTier(s);
-  if (tier && E.totalFame(s) >= tier.fameReq && E.canResearch(s).ok) {
-    const options = ALL_STYLES.filter(st => !s.specialties.includes(st));
-    if (options.length) s = E.startResearch(s, options[randInt(0, options.length - 1)]).state;
+  // research: the style-survey thesis first, then new styles and knowledge, dig sizes, more theses
+  const tryStart = (kind: 'style' | 'thesis' | 'dig', key: string) => {
+    if (R.planFor(s, kind, key).blocker) return false;
+    s = R.startProject(s, kind, key).state; return true;
+  };
+  for (let guard = 0; guard < 3; guard++) {
+    if (R.projects(s).length >= R.researchSlots(s) || E.initiativeError(s)) break;
+    const reserve = s.lastExpenses * RESERVE_WEEKS;
+    const ok = (cost: number) => s.funds - cost > reserve;
+    let started = false;
+    if (!R.thesesKnown(s).includes('movement')) started = tryStart('thesis', 'movement');
+    if (!started) {
+      const fresh = ALL_STYLES.filter(st => !s.specialties.includes(st) && !R.projects(s).some(p => p.key === st));
+      const pick = fresh[randInt(0, fresh.length - 1)];
+      const step = pick ? R.styleStep(s, pick) : null;
+      if (pick && step && ok(step.cost)) started = tryStart('style', pick);
+    }
+    if (!started && E.museumTypeOf(s) === 'archaeological')
+      for (const t of ['uncommon', 'rare', 'epic']) if (!started && ok(R.DIG_RESEARCH[t as 'rare'].cost * 2)) started = tryStart('dig', t);
+    if (!started) for (const st of [...s.specialties].sort((a, b) => R.knowledgeOf(s, a) - R.knowledgeOf(s, b))) {
+      const step = R.styleStep(s, st);
+      if (!started && step && ok(step.cost * 3)) started = tryStart('style', st);
+    }
+    if (!started) break;
+  }
+  return s;
+}
+
+/** once style surveys are known, turn mixed rooms into surveys of their main style */
+function themeRooms(s: GameState): GameState {
+  if (!R.thesesKnown(s).includes('movement')) return s;
+  for (const r of E.activeMuseum(s).rooms.filter(x => x.unlocked && !x.theme && x.items.length)) {
+    const focus = roomFocus(r);
+    if (focus && s.specialties.includes(focus)) s = E.assignRoom(s, r.id, focus).state;
   }
   return s;
 }
 
 function manage(s: GameState): GameState {
   s = staffAndResearch(s);
+  s = themeRooms(s);
   s = channels(s);
   if (E.canStudioVisit(s)) s = E.studioVisit(s).state;
   if (s.claim) s = E.answerClaim(s, Math.random() < 0.5).state;

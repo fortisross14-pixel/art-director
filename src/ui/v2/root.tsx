@@ -35,7 +35,7 @@ const SUBS: Record<Menu, [string, string][]> = {
   week: [['week', 'This Week'], ['crates', 'Crates'], ['news', 'News']],
   museum: [['floor', 'Floor'], ['collection', 'Collection'], ['catalogue', 'Catalogue'], ['building', 'Building']],
   acquire: [['calendar', 'Calendar'], ['auctions', 'Auctions'], ['expeditions', 'Expeditions'], ['artists', 'Artists']],
-  office: [['plan', 'Plan'], ['money', 'Money'], ['people', 'Staff & research'], ['standing', 'Standing']],
+  office: [['plan', 'Plan'], ['money', 'Money'], ['people', 'Staff'], ['research', 'Research'], ['standing', 'Standing']],
 };
 const MENU_LABEL: Record<Menu, string> = { week: 'Week', museum: 'Museum', acquire: 'Acquire', office: 'Office' };
 

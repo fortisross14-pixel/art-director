@@ -9,7 +9,9 @@
      * visitors follow a supply/demand curve of price vs quality
      * phases: choose-specialty -> name-gallery -> playing -> ended
    ============================================================ */
-import type {
+import { ensureSociety } from './society';
+import { DIG_KNOWLEDGE, KNOWLEDGE_NAMES, digTiers, foundingResearch, knowledgeOf, researchWeek, thesesKnown } from './research';
+import type { LivingArtist,
   GameState, StyleId, Room, GameEvent, LogEntry, RivalPlayer,
   StaffMember, StaffRole, Expedition, ExpeditionTier, Museum,
   Reputation, ReputationKind, MarketPacing,
@@ -300,6 +302,7 @@ export function newGame(legacyMuseums: LegacyMuseum[] = []): GameState {
     stolenUndeclared: {},
     salvageOnly: [],
     styleResearch: {},
+    knowledge: {}, researchProjects: [], thesesKnown: ['none'], digTiers: ['common'], artistsKnown: [], society: [],
     temporaryExhibitions: [],
     memberships: 0,
     museumRelations: {},
@@ -325,8 +328,9 @@ export function newGame(legacyMuseums: LegacyMuseum[] = []): GameState {
 /* --- helpers ----------------------------------------------- */
 export const roomIsFull = (r: Room) => r.items.length >= ROOM_CAPACITY;
 export const roomReady = (r: Room) => r.unlocked && !r.researching;
+/** any open room takes any work: the thesis decides how well it fits */
 export const canPlace = (r: Room, _style: StyleId) =>
-  roomReady(r) && !!r.theme && !roomIsFull(r);
+  roomReady(r) && !roomIsFull(r);
 export const hasOpenSlotFor = (s: GameState, style: StyleId) =>
   activeMuseum(s).rooms.some(r => canPlace(r, style));
 
@@ -371,6 +375,12 @@ function fork(s: GameState): GameState {
     stolenUndeclared: { ...(s.stolenUndeclared || {}) },
     salvageOnly: [...(s.salvageOnly || [])],
     styleResearch: JSON.parse(JSON.stringify(s.styleResearch || {})),
+    knowledge: { ...(s.knowledge || {}) },
+    researchProjects: (s.researchProjects || []).map(p => ({ ...p })),
+    thesesKnown: [...(s.thesesKnown || ['none'])],
+    digTiers: [...(s.digTiers || ['common'])],
+    artistsKnown: [...(s.artistsKnown || [])],
+    society: (s.society || []).map(m => ({ ...m, taste: { ...m.taste }, known: { ...m.known }, collection: [...m.collection] })),
     temporaryExhibitions: (s.temporaryExhibitions || []).map(x => ({ ...x, artifactIds: [...x.artifactIds] })),
     museumRelations: { ...(s.museumRelations || {}) },
     weeklyReport: s.weeklyReport ? JSON.parse(JSON.stringify(s.weeklyReport)) : null,
@@ -384,8 +394,7 @@ export function chooseSpecialty(s: GameState, style: StyleId): GameState {
   next.specialties = [style];
   next.expertise[style] = 0.5;
   next.phase = 'name-gallery';
-  const first = activeMuseum(next).rooms.find(r => r.unlocked);
-  if (first) first.theme = style;
+  foundingResearch(next, style);
   return next;
 }
 
@@ -417,8 +426,7 @@ export function chooseFoundingArtwork(
   next.owned = [artId];
   next.pendingItemId = artId;          // placed during/after onboarding
   next.phase = 'name-gallery';
-  const first = activeMuseum(next).rooms.find(r => r.unlocked);
-  if (first) first.theme = art.style;
+  foundingResearch(next, art.style);
   // the heirloom works the player did NOT pick pass to the cousins
   // — each cousin's starting strength reflects the piece they took.
   if (allChoices && allChoices.length) {
@@ -457,8 +465,7 @@ export function foundMuseum(
   const st: StyleId = style || 'renaissance';
   next.specialties = [st];
   next.expertise[st] = background === 'academic' ? 1 : 0.5;
-  const first = mus.rooms.find(r => r.unlocked);
-  if (first) first.theme = st;
+  foundingResearch(next, st);
   if (bg.startWorks) {
     const { count, band } = bg.startWorks;
     const pool = ARTIFACTS.filter(a => bandIndexForScore(a.score) === band);
@@ -567,6 +574,51 @@ export function soloShow(s: GameState, artistId: string): Result {
 }
 
 /** send a curator or researcher to the studio to judge where the career is heading */
+/* --- discovering artists ------------------------------------
+   You only know a few artists at first. Studio rounds find more,
+   and how far your curators can see sets how established the
+   people you find can be. */
+export function knownArtistIds(s: GameState): string[] {
+  const ids = new Set(s.artistsKnown || []);
+  for (const id of s.owned) { const w = s.livingWorks?.[id]; if (w) ids.add(w.artistId); }
+  for (const c of s.commissions || []) ids.add(c.artistId);
+  for (const a of s.artists || []) if (a.signed?.by === 'player') ids.add(a.id);
+  return [...ids];
+}
+export function knownArtists(s: GameState): LivingArtist[] {
+  const ids = new Set(knownArtistIds(s));
+  return (s.artists || []).filter(a => ids.has(a.id));
+}
+/** the most established artist your people can find */
+export function scoutReach(s: GameState): number {
+  const eye = s.staff.filter(x => x.role === 'curator').reduce((n, x) => n + x.skill, 0);
+  return Math.min(100, 30 + eye * 14 + (s.background === 'artist' ? 15 : 0));
+}
+export const STUDIO_ROUND_COST = 600;
+export function findArtists(s: GameState): Result {
+  const noInit = initiativeError(s);
+  if (noInit) return { state: s, error: noInit };
+  if (s.funds < STUDIO_ROUND_COST) return { state: s, error: `A round of studio visits costs ${money(STUDIO_ROUND_COST)}.` };
+  const known = new Set(knownArtistIds(s));
+  const reach = scoutReach(s);
+  const pool = (s.artists || []).filter(a => a.alive && !known.has(a.id) && a.reputation <= reach);
+  if (!pool.length) return { state: s, error: 'You know everyone your people can reach. Hire a stronger curator to see further.' };
+  let next = fork(s);
+  spendInitiative(next);
+  next.funds -= STUDIO_ROUND_COST;
+  // your own styles first, the most talked-about first
+  const mine = new Set(s.specialties);
+  const picks = pool.map(a => ({ a, w: (mine.has(a.style) ? 2 : 1) * (1 + a.reputation / 40) * Math.random() }))
+    .sort((x, y) => y.w - x.w).slice(0, 2).map(x => x.a);
+  next.artistsKnown = [...(next.artistsKnown || []), ...picks.map(a => a.id)];
+  next = logged(next, { kind: 'good', text: `Studio visits: you meet ${picks.map(a => `${a.name} (${STYLES[a.style].name})`).join(' and ')}.` });
+  return { state: next };
+}
+/** the three artists a new museum hears about first */
+export function firstArtists(s: GameState): string[] {
+  return [...(s.artists || [])].filter(a => a.alive).sort((a, b) => a.reputation - b.reputation).slice(0, 3).map(a => a.id);
+}
+
 export function scoutArtist(s: GameState, artistId: string): Result {
   const a = liveArtist(s, artistId);
   if (!a) return { state: s, error: 'That artist is no longer working.' };
@@ -597,11 +649,18 @@ function artistTick(s: GameState): void {
   // residencies with you that end this week leave a work behind
   const ending = (s.artists || []).filter(a => a.signed?.by === 'player' && a.signed.weeksLeft <= 1 && a.alive);
   const rivalEnding = (s.artists || []).filter(a => a.signed && a.signed.by !== 'player' && a.signed.weeksLeft <= 1 && a.alive);
+  const known = new Set(knownArtistIds(s));
   for (const n of artistWeek(s, exposure)) {
     const mine = s.owned.some(id => s.livingWorks?.[id]?.artistId === n.artistId);
-    pushLog(s, n.kind, n.text);
+    if (known.has(n.artistId)) pushLog(s, n.kind, n.text);
     if (mine) chronicle(s, n.text);
   }
+  // a breakout star becomes the talk of the art world
+  for (const a of s.artists || [])
+    if (a.alive && a.reputation >= 70 && !known.has(a.id)) {
+      s.artistsKnown = [...(s.artistsKnown || []), a.id];
+      pushLog(s, 'note', `Everyone is talking about ${a.name}. They're on your list now.`);
+    }
   for (const a of ending) {
     const id = createLivingWork(s, a.id);
     if (id) { s.owned = [...s.owned, id]; pushLog(s, 'good', `${a.name}'s residency ends; they leave you ${ARTIFACT_BY_ID[id].name}.`); }
@@ -798,16 +857,18 @@ export function assignRoom(
   s: GameState, roomId: number, style: StyleId,
 ): Result {
   if (!s.specialties.includes(style))
-    return { state: s, error: 'That specialty is not unlocked.' };
+    return { state: s, error: 'Research that style first.' };
+  if (!thesesKnown(s).includes('movement'))
+    return { state: s, error: 'Research the Style survey thesis first.' };
   const room = activeMuseum(s).rooms.find(r => r.id === roomId);
-  if (!room || !room.unlocked || room.theme || room.researching)
+  if (!room || !room.unlocked || room.researching)
     return { state: s, error: 'That room cannot be assigned.' };
   let next = fork(s);
   const aMus = activeMuseum(next);
   aMus.rooms = aMus.rooms.map(r =>
-    r.id === roomId ? { ...r, theme: style } : r);
+    r.id === roomId ? { ...r, theme: style, thesis: 'movement' } : r);
   next = logged(next, { kind: 'good',
-    text: `Assigned ${STYLES[style].name} to a room.` });
+    text: `${roomName(room)} is now a ${STYLES[style].name} survey.` });
   return { state: next };
 }
 
@@ -1341,7 +1402,7 @@ export function placeArtifact(s: GameState, roomId: number): Result {
     r.id === roomId ? { ...r, items: [...r.items, art.id] } : r);
   next.pendingItemId = null;
   next = logged(next, { kind: 'good',
-    text: `Placed ${art.name} in the ${STYLES[room.theme!].name} gallery.` });
+    text: `Placed ${art.name} in ${roomName(room)}.` });
   const filled = activeMuseum(next).rooms.find(r => r.id === roomId)!;
   // the completion bonus is paid once per room, so taking a work
   // down and re-hanging it cannot farm fame
@@ -1352,7 +1413,7 @@ export function placeArtifact(s: GameState, roomId: number): Result {
     const bonus = 20 + Math.round(quality * 0.18);
     addReputation(activeMuseum(next), 'prestige', bonus);
     next = logged(next, { kind: 'good',
-      text: `Completed a ${STYLES[filled.theme!].name} room — +${bonus} fame.` });
+      text: `Filled ${roomName(filled)} — +${bonus} fame.` });
   }
   return { state: next };
 }
@@ -1721,8 +1782,10 @@ export function commissionExpedition(
   if (noInit) return { state: s, error: noInit };
   const def = EXPEDITION_TIERS.find(t => t.id === tier);
   if (!def) return { state: s, error: 'Unknown expedition tier.' };
-  if (!s.specialties.includes(style))
-    return { state: s, error: 'You can only seek a style you have researched.' };
+  if (knowledgeOf(s, style) < DIG_KNOWLEDGE)
+    return { state: s, error: `Research ${STYLES[style].name} to ${KNOWLEDGE_NAMES[DIG_KNOWLEDGE]} to dig there.` };
+  if (!digTiers(s).includes(tier))
+    return { state: s, error: 'Research that size of expedition first.' };
   const cost = expeditionCost(s, tier);
   if (s.funds < cost)
     return { state: s, error: `A ${def.name} costs ${money(cost)}.` };
@@ -2182,7 +2245,7 @@ export function placeLoan(
     return { state: s, error: 'That loan is already on display.' };
   const art = ARTIFACT_BY_ID[loan.artifactId];
   const room = mus0.rooms.find(r => r.id === roomId);
-  if (!room || !roomReady(room) || room.theme !== art.style)
+  if (!room || !roomReady(room))
     return { state: s, error: 'That wall cannot take this work.' };
   const used = room.items.length + loanedIdsInRoom(s, room.id).length;
   if (used >= ROOM_CAPACITY)
@@ -2619,8 +2682,8 @@ export function reputationTargets(s: GameState, m: Museum): Reputation {
   const ratings = rooms.map(r => roomRatings(s, r));
   const avgQuality = ratings.length
     ? ratings.reduce((n, r) => n + r.artQuality, 0) / ratings.length : 0;
-  const research = Object.values(s.styleResearch || {})
-    .reduce((n, r) => n + (r?.completed?.length || 0), 0);
+  const research = Object.values(s.knowledge || {})
+    .reduce((n, k) => n + Math.max(0, (k || 0) - 1), 0) * 1.5;
   const completed = m.rooms.filter(roomIsFull).length;
   const prestige = weightedQuality(s, m) * 0.45 + avgQuality * 0.3
     + research * 3 + completed * 6 + museumCohesionBonus(m) * 0.5
@@ -2813,6 +2876,7 @@ export function advanceWeek(s: GameState): GameState {
   // attribution studies, completed sets, gifts from donors
   artistTick(next);
   progressStudies(next);
+  researchWeek(next);
   checkSets(next);
   rollBequest(next);
   // reputation drifts toward what each museum currently is
@@ -2871,6 +2935,7 @@ export function advanceWeek(s: GameState): GameState {
   rollEstateOffer(next);
   // a gala appears some weeks — a chance to court collectors for loans
   next.galaPending = galaInWeek(next, next.week);
+  if (next.galaPending && !next.society?.length) next.society = ensureSociety(next);
   if (next.galaPending)
     next = logged(next, { kind: 'note',
       text: 'A society gala is being held this week — a chance to court '

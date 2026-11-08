@@ -1,7 +1,7 @@
 /* ============================================================
    UI v2 — OFFICE  ( src/ui/v2/ )
    Plan: the 20 strategy points and initiatives. Money: ticket
-   price, income, sponsors, campaigns. Staff & research. Standing:
+   price, income, sponsors, campaigns. Staff. Research. Standing:
    league, Annual Reports, history, rivals, the city, retirement.
    ============================================================ */
 import { useState } from 'react';
@@ -12,14 +12,16 @@ import * as S from '../../engine/season';
 import * as Sim from '../../engine/sim';
 import { money } from '../../engine/util';
 import { PointsPicker, fromPlan, toPlan, TicketPresets, MixLine, LeagueTable, RetireButton, AnnualReportPanel, HistoryPanel } from '../season';
-import { PersonnelTab, SpecialtiesTab, SponsorsPanel, CompetitorsTab, MapTab, CareerSoFar } from '../App';
+import { ResearchPage } from './research';
+import { PersonnelTab, SponsorsPanel, CompetitorsTab, MapTab, CareerSoFar } from '../App';
 import type { Apply, Nav } from './root';
 
 interface Props { state: GameState; sub: string; apply: Apply; setState: (s: GameState) => void; nav: Nav; flash: (m: string) => void; }
 
 export function OfficePage(p: Props) {
   if (p.sub === 'money') return <Money {...p} />;
-  if (p.sub === 'people') return <><PersonnelTab state={p.state} apply={p.apply} /><SpecialtiesTab state={p.state} apply={p.apply} /></>;
+  if (p.sub === 'people') return <PersonnelTab state={p.state} apply={p.apply} />;
+  if (p.sub === 'research') return <ResearchPage state={p.state} apply={p.apply} />;
   if (p.sub === 'standing') return <Standing {...p} />;
   return <Plan {...p} />;
 }

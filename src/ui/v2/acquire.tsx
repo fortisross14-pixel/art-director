@@ -12,9 +12,10 @@ import * as E from '../../engine/game';
 import * as Auc from '../../engine/auction';
 import * as W from '../../engine/weekly';
 import * as Att from '../../engine/attribution';
+import * as R from '../../engine/research';
 import { EXPEDITION_CRATE } from '../../engine/game';
 import { CRATE_TIER_NAME } from '../../engine/crates';
-import { ArtistsTab } from '../artists';
+import { ArtistsPage } from './artists';
 import { money } from '../../engine/util';
 import type { Apply, Nav } from './root';
 
@@ -23,12 +24,7 @@ interface Props { state: GameState; sub: string; apply: Apply; setState: (s: Gam
 export function AcquirePage(p: Props) {
   if (p.sub === 'auctions') return <Auctions {...p} />;
   if (p.sub === 'expeditions') return <Expeditions {...p} />;
-  if (p.sub === 'artists') return <>
-    {E.canStudioVisit(p.state) && <div className="panel v2-callout"><b>Studio visit available</b>
-      <span>A crate of brand-new work, straight from the studios.</span>
-      <button onClick={() => p.apply(E.studioVisit(p.state))}>Visit the studios · §2,500 · 1 initiative</button></div>}
-    <ArtistsTab state={p.state} apply={p.apply} />
-  </>;
+  if (p.sub === 'artists') return <ArtistsPage state={p.state} apply={p.apply} />;
   return <Calendar {...p} />;
 }
 
@@ -110,7 +106,7 @@ function Auctions({ state, apply, setState, flash }: Props) {
 const SIZE_NAME: Record<ExpeditionTier, string> = { common: 'Field', uncommon: 'Major', rare: 'Deep', epic: 'Grand' };
 
 function Expeditions({ state, apply, nav }: Props) {
-  const [style, setStyle] = useState<StyleId>(state.specialties[0]);
+  const [style, setStyle] = useState<StyleId>(state.specialties.find(st => R.knowledgeOf(state, st) >= R.DIG_KNOWLEDGE) || state.specialties[0]);
   const [tier, setTier] = useState<ExpeditionTier>('common');
   const free = E.freeExplorers(state);
   const [leader, setLeader] = useState<string>('');
@@ -133,20 +129,25 @@ function Expeditions({ state, apply, nav }: Props) {
       <div className="panel">
         <div className="kicker">1 · Where</div>
         <div className="v2-regions">
-          {state.specialties.map(st => (
-            <button key={st} className={st === style ? 'sel' : ''} onClick={() => setStyle(st)}>
-              <b>{W.regionOf(st)}</b><span>{STYLES[st].name}</span>{busy.has(st) && <small>a team is there</small>}</button>
-          ))}
+          {state.specialties.map(st => {
+            const open = R.knowledgeOf(state, st) >= R.DIG_KNOWLEDGE;
+            return (
+              <button key={st} className={(st === style && open ? 'sel' : '') + (open ? '' : ' locked')} onClick={() => open && setStyle(st)}>
+                <b>{W.regionOf(st)}</b><span>{STYLES[st].name}</span>
+                {!open ? <small>Research to {R.KNOWLEDGE_NAMES[R.DIG_KNOWLEDGE]}</small> : busy.has(st) && <small>a team is there</small>}</button>
+            );
+          })}
         </div>
-        <p className="v2-muted">Research new styles to open new regions.</p>
+        <p className="v2-muted">Regions open as your knowledge of a style grows (Office → Research).</p>
         <div className="kicker" style={{ marginTop: 14 }}>2 · How big</div>
         <div className="v2-tiers">
           {EXPEDITION_TIERS.map(t => {
             const crate = EXPEDITION_CRATE[t.id];
+            const known = R.digTiers(state).includes(t.id);
             return (
-              <button key={t.id} className={t.id === tier ? 'sel' : ''} onClick={() => setTier(t.id)}>
+              <button key={t.id} className={(t.id === tier ? 'sel' : '') + (known ? '' : ' locked')} onClick={() => known && setTier(t.id)}>
                 <i className={'crate-' + crate} />
-                <b>{SIZE_NAME[t.id]}</b><span>{CRATE_TIER_NAME[crate]} crate</span><em>{money(E.expeditionCost(state, t.id))}</em>
+                <b>{SIZE_NAME[t.id]}</b><span>{CRATE_TIER_NAME[crate]} crate</span><em>{known ? money(E.expeditionCost(state, t.id)) : 'Research'}</em>
               </button>
             );
           })}

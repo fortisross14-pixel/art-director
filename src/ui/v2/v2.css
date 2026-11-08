@@ -75,7 +75,8 @@
 .v2-room-plus { font-size: 34px; line-height: 1; }
 
 /* --- the gallery screen -------------------------------------- */
-.v2-gallery { animation: rise 0.35s ease both; }
+.v2-gallery { }
+.v2-gallery > .v2-gtop, .v2-gallery > .v2-wall, .v2-gallery > .v2-staff { animation: rise 0.35s ease both; }
 .v2-gtop { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .salon .v2-round { width: 46px; height: 46px; min-height: 46px; padding: 0; border-radius: 50%; background: transparent; color: var(--s-ivory); border: 1px solid var(--s-line); font-size: 20px; flex: 0 0 auto; }
 .v2-gname { flex: 1; min-width: 0; }
@@ -261,3 +262,69 @@
 @keyframes tremble { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px) rotate(-3deg); } 75% { transform: translateX(2px) rotate(3deg); } }
 .salon .v2-slot:hover:not(:disabled) { background: rgba(201,162,75,0.12); color: var(--s-gold-bright); border-color: var(--s-gold); }
 .salon .v2-work:hover:not(:disabled) { background: transparent; }
+
+/* --- picker tiles (thesis, style, decor, research) ------------ */
+.v2-tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+.salon .v2-tile, .v2-tile { position: relative; min-height: 132px; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px 10px;
+  background: var(--s-surface-2); color: var(--s-ivory); border: 1px solid var(--s-line); border-radius: 3px; text-align: left; animation: rise 0.35s ease both; }
+.salon .v2-tile:hover:not(:disabled) { background: #3A2226; border-color: var(--s-gold-deep); }
+.salon .v2-tile.sel, .v2-tile.sel { border: 2px solid var(--s-gold); }
+.v2-tile.locked { opacity: 0.55; }
+.v2-tile.locked::after { content: ''; position: absolute; top: 10px; right: 10px; width: 10px; height: 8px; border: 2px solid var(--s-muted); border-radius: 2px;
+  box-shadow: 0 -6px 0 -2px transparent; }
+.v2-tile.locked::before { content: ''; position: absolute; top: 4px; right: 12px; width: 6px; height: 7px; border: 2px solid var(--s-muted); border-bottom: 0; border-radius: 4px 4px 0 0; }
+.v2-tile.faint { opacity: 0.7; }
+.v2-tile b { font-family: var(--s-serif); font-size: 18px; line-height: 1.1; }
+.v2-tile small { font-size: 11.5px; color: var(--s-muted); line-height: 1.3; }
+.salon .v2-tile button { margin-top: auto; min-height: 38px; padding: 4px 10px; font-size: 12.5px; }
+.v2-tile-icon { color: var(--s-gold-bright); height: 40px; }
+.v2-tile-swatch { width: 100%; height: 34px; border-radius: 2px; border: 1px solid rgba(0,0,0,0.3); display: flex; align-items: flex-end; justify-content: center; gap: 6px; padding-bottom: 6px; }
+.v2-tile-swatch.big { height: 54px; }
+.v2-tile-swatch i { width: 12px; height: 18px; border: 2px solid #C9A24B; background: rgba(255,255,255,0.15); display: block; }
+.v2-delta { margin-top: auto; font-style: normal; font-size: 12px; font-weight: 700; color: var(--s-muted); }
+.v2-delta.up { color: var(--s-good); } .v2-delta.down { color: var(--s-bad); }
+.v2-why { color: var(--s-bad) !important; }
+.v2-chipicon { display: inline-flex; width: 20px; height: 20px; margin-right: 6px; color: var(--s-gold-bright); }
+.v2-chipicon svg { width: 20px; height: 20px; }
+.v2-pips { display: flex; gap: 4px; }
+.v2-pips i { width: 16px; height: 6px; border-radius: 3px; background: var(--s-deep); border: 1px solid var(--s-line); display: block; }
+.v2-pips i.on { background: var(--s-gold); border-color: var(--s-gold); }
+.v2-levels { list-style: none; padding: 0; margin: 12px 0; display: flex; flex-direction: column; gap: 6px; }
+.v2-levels li { display: flex; flex-direction: column; padding: 8px 10px; border-left: 3px solid var(--s-line); background: var(--s-surface); opacity: 0.6; }
+.v2-levels li.done { border-left-color: var(--s-gold); opacity: 1; }
+.v2-levels li.next { border-left-color: var(--s-gold-bright); opacity: 1; background: rgba(201,162,75,0.08); }
+.v2-levels b { font-size: 14px; } .v2-levels span { font-size: 12px; color: var(--s-muted); }
+.v2-tier { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; background: var(--s-surface-2); border: 1px solid var(--s-line); text-align: center; }
+.v2-tier.sel { border: 2px solid var(--s-gold); }
+.v2-tier i { width: 28px; height: 28px; border: 3px solid; display: block; }
+.v2-tier i.crate-field { border-color: var(--r-uncommon); } .v2-tier i.crate-major { border-color: var(--r-rare); } .v2-tier i.crate-legendary { border-color: var(--r-legend); }
+.v2-tier b { font-family: var(--s-serif); font-size: 16px; } .v2-tier span { font-size: 11px; color: var(--s-muted); }
+.salon .v2-tier button { min-height: 34px; padding: 2px 6px; font-size: 11.5px; }
+.salon .v2-regions button.locked, .salon .v2-tiers button.locked { opacity: 0.5; border-style: dashed; }
+
+/* --- artists --------------------------------------------------- */
+.v2-reach { display: grid; grid-template-columns: auto minmax(0, 1fr) 34px; gap: 8px; align-items: center; font-size: 12.5px; color: var(--s-muted); margin: 6px 0; }
+.v2-reach i { display: block; height: 8px; background: var(--s-deep); border: 1px solid var(--s-line-soft); }
+.v2-reach em { display: block; height: 100%; background: var(--s-gold); }
+.v2-reach b { font-family: var(--s-serif); font-size: 19px; color: var(--s-ivory); text-align: right; }
+.v2-artists { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.salon .v2-artist { display: flex; align-items: center; gap: 10px; min-height: 70px; padding: 10px; background: var(--s-surface); color: var(--s-ivory); border: 1px solid var(--s-line); text-align: left; animation: rise 0.35s ease both; }
+.v2-artist-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.v2-artist-body b { font-family: var(--s-serif); font-size: 18px; }
+.v2-artist-body small { font-size: 11.5px; color: var(--s-muted); }
+.v2-artist-rep { display: flex; align-items: center; gap: 6px; }
+.v2-artist-rep i { flex: 1; height: 6px; background: var(--s-deep); display: block; }
+.v2-artist-rep i em { display: block; height: 100%; background: var(--s-gold); }
+.v2-artist-rep > em { font-style: normal; font-size: 11px; color: var(--s-muted); } .v2-artist-rep > em.up { color: var(--s-good); } .v2-artist-rep > em.down { color: var(--s-bad); }
+.v2-artist-band { flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 3px 8px; border: 1px solid; border-radius: 10px; }
+
+/* --- galas: people you've met --------------------------------- */
+.salon .v2-guests button.met { border-color: var(--s-gold-deep); }
+.v2-metline { font-size: 10.5px; color: var(--s-gold); text-align: center; }
+.v2-tastes.mini { margin: 0; justify-content: center; gap: 3px; }
+.v2-tastes.mini span { font-size: 9.5px; padding: 1px 5px; }
+.salon .v2-gchips .v2-chipicon { border: 0; min-height: 0; padding: 0; border-radius: 0; }
+.present-sheet { position: relative; }
+.salon .v2-sheetclose { position: sticky; top: 0; float: right; z-index: 2; width: 44px; height: 44px; min-height: 44px; padding: 0; margin: -6px -6px 0 0;
+  border-radius: 50%; background: var(--s-surface); color: var(--s-ivory); border: 1px solid var(--s-line); font-size: 24px; line-height: 1; }
+.salon .v2-tile.compact, .v2-tile.compact { min-height: 74px; padding: 10px; }

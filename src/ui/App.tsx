@@ -411,7 +411,7 @@ function Shell({
           <div>
             <div className="salon-kicker">{season ? Season.seasonLabel(season.index) : `Week ${state.week}`}
               {' '}· {Season.LEAGUE_NAMES[state.league || 'city']} #{Season.leagueRank(state)}</div>
-            <h1 className="salon-title" onClick={onExit} title="Back to the home screen">{state.galleryName || 'Museum Wars'}</h1>
+            <h1 className="salon-title" onClick={onExit} title="Back to the home screen">{state.galleryName || "Art Director"}</h1>
           </div>
           {season && <div className="salon-tokens" aria-label={`${season.initiativesLeft} of ${season.initiativesMax} initiatives left`}>
             {Array.from({ length: season.initiativesMax }, (_, i) => <i key={i} className={i < season.initiativesLeft ? '' : 'spent'} />)}
@@ -509,7 +509,7 @@ export function ChooseStyle({
     <>
       <header>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-          <h1 style={{ cursor: 'pointer' }} onClick={onExit}>Museum Wars</h1>
+          <h1 style={{ cursor: "pointer" }} onClick={onExit}>Art Director</h1>
           <span className="tagline">a family inheritance</span>
         </div>
       </header>
@@ -595,7 +595,7 @@ export function NameGallery({
   return (
     <>
       <header>
-        <h1>Museum Wars</h1>
+        <h1>Art Director</h1>
         <span className="tagline">your first gallery</span>
       </header>
       <main>
@@ -607,7 +607,7 @@ export function NameGallery({
           </p>
           <p>
             Name your gallery (this is permanent), set an opening admission
-            price (you can change the price later from the Manage tab), then
+            price (you can change the price later from Office → Money), then
             begin filling those empty rooms.
           </p>
         </div>
@@ -978,7 +978,7 @@ function GalleriesTab({
           <div className="director-detail-grid">
             <div className="director-subpanel">
               <h4>Exhibition thesis</h4>
-              <select value={room.thesis || 'movement'} onChange={e => setState(D.setRoomThesis(state, room.id, e.target.value as D.ThesisId))}>
+              <select value={room.thesis || 'movement'} onChange={e => setState(D.setRoomThesis(state, room.id, e.target.value as D.ThesisId).state)}>
                 {Object.entries(D.THESES).map(([id,t]) => <option key={id} value={id}>{t.name}</option>)}
               </select>
               <p>{D.THESES[(room.thesis || 'movement') as D.ThesisId].blurb}</p>

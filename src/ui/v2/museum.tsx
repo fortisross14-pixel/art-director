@@ -7,13 +7,15 @@
    Building live alongside.
    ============================================================ */
 import { useState } from 'react';
-import type { GameState, Room, StyleId } from '../../data/types';
+import type { GameState, Room } from '../../data/types';
 import { ARTIFACT_BY_ID } from '../../data/artifacts';
 import { BUILDINGS, ROOM_CAPACITY, STYLES, districtOfBuilding, rarityForScore } from '../../data/constants';
 import * as E from '../../engine/game';
 import * as D from '../../engine/director';
 import * as Att from '../../engine/attribution';
 import { Thumb } from '../components';
+import { ThesisIcon, ThesisPicker, StylePicker, DecorPicker } from './pickers';
+import { thesisOf } from '../../engine/ratings';
 import { CodexTab, TemporaryExhibitionsPanel } from '../App';
 import { CatalogueTab } from '../crates';
 import { money } from '../../engine/util';
@@ -82,7 +84,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
 }) {
   const m = E.activeMuseum(state);
   const room = m.rooms.find(r => r.id === roomId) as Room | undefined;
-  const [sheet, setSheet] = useState<Sheet>(room && !room.theme ? { kind: 'style' } : null);
+  const [sheet, setSheet] = useState<Sheet>(null);
   const [name, setName] = useState(room ? E.roomName(room) : '');
   if (!room) return null;
   const rr = D.detailedRoomRatings(state, room);
@@ -118,14 +120,14 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
           <input id="gname" value={name} onChange={e => setName(e.target.value)}
             onBlur={() => setState(E.renameRoom(state, room.id, name.trim() === E.roomName({ ...room, name: undefined }) ? '' : name.trim()))} />
         </div>
-        <button className="v2-stylechip" onClick={() => !room.theme && setSheet({ kind: 'style' })}>{room.theme ? STYLES[room.theme].name : 'Choose style'}</button>
+        <button className="v2-stylechip" onClick={() => setSheet({ kind: 'thesis' })}>{room.theme ? STYLES[room.theme].name : 'Mixed'}</button>
       </div>
 
       <div className="v2-wall">
         <div className="v2-frames">
           {Array.from({ length: ROOM_CAPACITY }, (_, k) => {
             const id = room.items[k];
-            if (!id) return <button key={k} className="v2-slot" onClick={() => room.theme ? setSheet({ kind: 'hang', slot: k }) : setSheet({ kind: 'style' })} aria-label="Hang a work here">+</button>;
+            if (!id) return <button key={k} className="v2-slot" onClick={() => setSheet({ kind: 'hang', slot: k })} aria-label="Hang a work here">+</button>;
             const art = Att.workOf(state, id);
             const isSig = state.signatureId === id;
             return (
@@ -160,7 +162,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
         ))}
       </div>
       <div className="v2-gchips">
-        <button onClick={() => setSheet({ kind: 'thesis' })}>Thesis: {D.THESES[(room.thesis || 'movement') as D.ThesisId].name}</button>
+        <button onClick={() => setSheet({ kind: 'thesis' })}><span className="v2-chipicon"><ThesisIcon id={thesisOf(room)} /></span>{D.THESES[thesisOf(room)].name}{room.theme && thesisOf(room) === 'movement' ? `: ${STYLES[room.theme].name}` : ''}</button>
         <button onClick={() => setSheet({ kind: 'decor' })}>Decor: {D.DECOR[(room.decorStyle || 'classic') as keyof typeof D.DECOR].name}</button>
         <span>Presentation: {E.presentationTier(room)}</span>
       </div>
@@ -169,6 +171,7 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
       {sheet && (
         <div className="present" onClick={() => setSheet(null)}>
           <div className="present-sheet" onClick={e => e.stopPropagation()}>
+            <button className="v2-sheetclose" onClick={() => setSheet(null)} aria-label="Close">×</button>
             {sheet.kind === 'hang' && <>
               <div className="kicker">Hang a work</div>
               <h2>From your storage</h2>
@@ -179,10 +182,13 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
                   <Thumb artifact={art} size="sm" /><span><b>{art.name}</b><small>On loan from {l.lenderName} · {l.weeksLeft} wk</small></span><em className="fit">Loan</em></button>;
               })}
               {storage.map(a => {
+                const themed = !!room.theme && thesisOf(room) === 'movement';
                 const fits = a.style === room.theme;
+                const gain = D.detailedRoomRatings(state, { ...room, items: [...room.items, a.id] }).visitorAppeal - rr.visitorAppeal;
                 return <button key={a.id} className="v2-pick" onClick={() => hang(a.id)}>
                   <Thumb artifact={a} size="sm" /><span><b>{a.name}</b><small>{rarityForScore(a.score).name} {a.score} · {STYLES[a.style].name}</small></span>
-                  <em className={fits ? 'fit' : 'off'}>{fits ? 'Fits' : 'Off-theme'}</em></button>;
+                  {themed ? <em className={fits ? 'fit' : 'off'}>{fits ? 'Fits' : 'Off-theme'}</em>
+                    : <em className={gain >= 0 ? 'fit' : 'off'}>{gain >= 0 ? '+' : ''}{gain} appeal</em>}</button>;
               })}
             </>}
             {sheet.kind === 'work' && (() => {
@@ -207,29 +213,14 @@ export function GalleryScreen({ state, roomId, apply, setState, nav, onBack }: {
                 <button key={x.id} className="v2-pick" onClick={() => { setState(D.assignRoomStaff(state, room.id, sheet.role, x.id)); setSheet(null); }}>
                   <span className="v2-avatar">{x.name.split(' ').map(y => y[0]).join('').slice(0, 2)}</span>
                   <span><b>{x.name}</b><small>{'★'.repeat(x.skill)} · {x.specialty}</small></span></button>))}
-              {!state.staff.some(x => x.role === sheet.role) && <p className="empty-note">No {sheet.role === 'curator' ? 'curators' : 'researchers'} on staff. Hire one in Office → Staff &amp; research.</p>}
+              {!state.staff.some(x => x.role === sheet.role) && <p className="empty-note">No {sheet.role === 'curator' ? 'curators' : 'researchers'} on staff. Hire one in Office → Staff.</p>}
               <button className="ghost" onClick={() => { setState(D.assignRoomStaff(state, room.id, sheet.role, null)); setSheet(null); }}>Leave the slot empty</button>
             </>}
-            {sheet.kind === 'thesis' && <>
-              <div className="kicker">Curatorial thesis</div><h2>What is this room about?</h2>
-              {(Object.keys(D.THESES) as D.ThesisId[]).map(t => (
-                <button key={t} className={'v2-pick' + (room.thesis === t ? ' sel' : '')} onClick={() => { setState(D.setRoomThesis(state, room.id, t)); setSheet(null); }}>
-                  <span><b>{D.THESES[t].name}</b><small>{D.THESES[t].blurb}</small></span></button>))}
-            </>}
-            {sheet.kind === 'decor' && <>
-              <div className="kicker">Decor</div><h2>How should it feel?</h2>
-              {(Object.keys(D.DECOR) as (keyof typeof D.DECOR)[]).map(k => (
-                <button key={k} className={'v2-pick' + (room.decorStyle === k ? ' sel' : '')} onClick={() => { setState(D.setRoomDecor(state, room.id, k)); setSheet(null); }}>
-                  <span><b>{D.DECOR[k].name}</b><small>Best for {D.DECOR[k].best.map(x => STYLES[x as StyleId].name).join(', ')}</small></span>
-                  {room.theme && (D.DECOR[k].best as readonly string[]).includes(room.theme) && <em className="fit">Fits</em>}</button>))}
-            </>}
-            {sheet.kind === 'style' && <>
-              <div className="kicker">A new gallery</div><h2>Which style will it show?</h2>
-              {state.specialties.map(st => (
-                <button key={st} className="v2-pick" onClick={() => { apply(E.assignRoom(state, room.id, st)); setSheet(null); }}>
-                  <span><b>{STYLES[st].name}</b><small>{state.owned.filter(id => ARTIFACT_BY_ID[id]?.style === st && !shown.has(id)).length} works in storage</small></span></button>))}
-              <p className="empty-note">New styles open up through Office → Staff &amp; research.</p>
-            </>}
+            {sheet.kind === 'thesis' && <ThesisPicker state={state} room={room}
+              onPick={t => { apply(D.setRoomThesis(state, room.id, t)); setSheet(null); }}
+              onStyle={() => setSheet({ kind: 'style' })} />}
+            {sheet.kind === 'decor' && <DecorPicker state={state} room={room} onPick={k => { setState(D.setRoomDecor(state, room.id, k)); setSheet(null); }} />}
+            {sheet.kind === 'style' && <StylePicker state={state} room={room} onPick={st => { apply(D.setRoomStyle(state, room.id, st)); setSheet(null); }} />}
           </div>
         </div>
       )}

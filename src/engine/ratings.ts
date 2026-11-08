@@ -9,9 +9,10 @@ import type { GameState, Room, StyleId } from '../data/types';
 import { ARTIFACT_BY_ID } from '../data/artifacts';
 import { workOf } from './attribution';
 
-export type ThesisId = 'movement' | 'artist' | 'period' | 'region' | 'medium' | 'dialogue';
+export type ThesisId = 'none' | 'movement' | 'artist' | 'period' | 'region' | 'medium' | 'dialogue';
 export const THESES: Record<ThesisId, { name: string; blurb: string }> = {
-  movement: { name: 'Movement survey', blurb: 'A clear overview of one artistic movement.' },
+  none: { name: 'No thesis', blurb: 'A mixed display: anything can hang, but it never quite adds up.' },
+  movement: { name: 'Style survey', blurb: 'One style, shown in depth. Works of that style fit best.' },
   artist: { name: 'Artist focus', blurb: 'Build the room around one artist and their circle.' },
   period: { name: 'Period panorama', blurb: 'Connect works made within a close historical era.' },
   region: { name: 'Place and school', blurb: 'Explore a region, court, city, or artistic school.' },
@@ -28,9 +29,26 @@ export const DECOR = {
 
 function year(a: string) { return Number(String(a).match(/\d{3,4}/)?.[0] || 0); }
 
-export function styleResearchLevel(s: GameState, style: StyleId) {
-  return s.styleResearch?.[style]?.completed?.length || 0;
+/** knowledge of a style, 0..5 */
+export function styleResearchLevel(s: GameState, style: StyleId | null) {
+  return style ? Math.max(0, Math.min(5, s.knowledge?.[style] || 0)) : 0;
 }
+
+/** the room's thesis: themed rooms from older saves read as a style survey */
+export const thesisOf = (room: Room): ThesisId =>
+  (room.thesis as ThesisId) || (room.theme ? 'movement' : 'none');
+
+/** the style a room is really about: its chosen style, or the one most of its works share */
+export function roomFocus(room: Room): StyleId | null {
+  if (room.theme) return room.theme;
+  const counts: Record<string, number> = {};
+  for (const id of room.items) { const a = ARTIFACT_BY_ID[id]; if (a) counts[a.style] = (counts[a.style] || 0) + 1; }
+  const top = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+  return top ? top[0] as StyleId : null;
+}
+
+/** how well an unthemed display can do, whatever is on the walls */
+export const NO_THESIS_FIT = 32;
 
 function assignedSkill(s: GameState, id?: string | null) {
   return id ? (s.staff.find(x => x.id === id)?.skill || 0) : 0;
@@ -40,15 +58,16 @@ function assignedSkill(s: GameState, id?: string | null) {
  *  room theme and to each other. */
 export function roomCohesion(room: Room): number {
   const works = room.items.map(id => ARTIFACT_BY_ID[id]).filter(Boolean);
-  if (!room.theme || works.length === 0) return 0;
+  const theme = roomFocus(room);
+  if (!theme || works.length === 0) return 0;
   let relatedPairs = 0;
   let pairWeight = 0;
   for (let i = 0; i < works.length; i++) {
     for (let j = i + 1; j < works.length; j++) {
       pairWeight++;
       // Off-theme works are legal but weaken the room's coherence.
-      const iMatches = works[i].style === room.theme;
-      const jMatches = works[j].style === room.theme;
+      const iMatches = works[i].style === theme;
+      const jMatches = works[j].style === theme;
       let link = iMatches && jMatches ? 0.42
         : works[i].style === works[j].style ? 0.28 : 0.04;
       if (works[i].author === works[j].author) link += 0.28;
@@ -59,7 +78,7 @@ export function roomCohesion(room: Room): number {
       relatedPairs += Math.min(1, link);
     }
   }
-  const themeMatch = works.filter(a => a.style === room.theme).length / works.length;
+  const themeMatch = works.filter(a => a.style === theme).length / works.length;
   const pairCohesion = works.length === 1 ? (themeMatch ? 72 : 24)
     : Math.round((relatedPairs / Math.max(1, pairWeight)) * 100);
   return Math.round(pairCohesion * 0.72 + themeMatch * 100 * 0.28);
@@ -85,18 +104,19 @@ const EMPTY: RoomRatings = {
 /** Full room ratings, 0-100 each. */
 export function roomRatings(s: GameState, room: Room): RoomRatings {
   const works = room.items.filter(id => ARTIFACT_BY_ID[id]).map(id => workOf(s, id));
-  if (!room.unlocked || !room.theme || works.length === 0) return { ...EMPTY };
+  if (!room.unlocked || works.length === 0) return { ...EMPTY };
+  const focus = roomFocus(room);
 
   const avg = works.reduce((n, a) => n + a.score, 0) / works.length;
   const fill = Math.min(works.length, 5);
   const collectionStrength = Math.min(100, Math.round(18 + Math.sqrt(avg) * 6 + fill * 4));
-  const research = styleResearchLevel(s, room.theme);
+  const research = styleResearchLevel(s, focus);
   const curator = assignedSkill(s, room.assignedCuratorId);
   const educator = assignedSkill(s, room.assignedResearcherId);
   const cohesion = roomCohesion(room);
 
-  const thesis = (room.thesis || 'movement') as ThesisId;
-  let thesisFit = cohesion;
+  const thesis = thesisOf(room);
+  let thesisFit = thesis === 'none' || (thesis === 'movement' && !room.theme) ? NO_THESIS_FIT : cohesion;
   if (thesis === 'artist' && works.length > 1) {
     const counts = works.reduce((m, a) => (m[a.author] = (m[a.author] || 0) + 1, m), {} as Record<string, number>);
     thesisFit = Math.round(Math.max(...Object.values(counts)) / works.length * 100);
@@ -110,12 +130,14 @@ export function roomRatings(s: GameState, room: Room): RoomRatings {
     thesisFit = Math.max(25, 110 - types.size * 22);
   }
   if (thesis === 'dialogue')
-    thesisFit = research >= 6 ? Math.max(cohesion, 78) : Math.round(cohesion * 0.72);
+    thesisFit = research >= 4 ? Math.max(cohesion, 78) : Math.round(cohesion * 0.72);
 
-  const curatorialDepth = Math.min(100, Math.round(12 + research * 10 + curator * 9 + thesisFit * 0.35));
-  const interpretation = Math.min(100, Math.round((room.interpretation || 0) * 22 + research * 5 + educator * 10));
+  const curatorialDepth = Math.min(100, Math.round(12 + research * 12 + curator * 9 + thesisFit * 0.35));
+  // an educator turns knowledge into labels, talks and tours
+  const interpretation = Math.min(100, Math.round((room.interpretation || 0) * 22 + research * 5
+    + (educator ? educator * (6 + research * 2) : 0)));
   const decor = (room.decorStyle || 'classic') as keyof typeof DECOR;
-  const decorFit = (DECOR[decor].best as readonly string[]).includes(room.theme) ? 100 : 58;
+  const decorFit = focus && (DECOR[decor].best as readonly string[]).includes(focus) ? 100 : 58;
   const comfort = Math.min(100, Math.round((room.amenities || 0) * 27 + 35));
   const attractiveness = Math.min(100, Math.round(
     thesisFit * 0.34 + (room.decoration || 0) * 14 + comfort * 0.16 + decorFit * 0.14 + fill * 3));

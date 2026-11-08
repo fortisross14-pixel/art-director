@@ -18,7 +18,7 @@ export const SLOT_COUNT = 3;
    a save would crash any screen that reads a missing array. This
    migration backfills every field with a safe default so old
    saves keep working. New fields must be added here too. */
-function migrateState(state: Partial<GameState>): GameState {
+export function migrateState(state: Partial<GameState>): GameState {
   const s = state as GameState & Record<string, unknown>;
   if (!Array.isArray(s.staff)) s.staff = [];
   if (!Array.isArray(s.candidates)) s.candidates = makeCandidates();
@@ -54,6 +54,29 @@ function migrateState(state: Partial<GameState>): GameState {
   if (s.auction === undefined) s.auction = null;
   if (!s.styleResearch || typeof s.styleResearch !== 'object') s.styleResearch = {};
   if (!Array.isArray(s.temporaryExhibitions)) s.temporaryExhibitions = [];
+  // v18: knowledge 0..5 per style, researched theses and dig sizes
+  if (!s.knowledge) {
+    s.knowledge = {};
+    (s.specialties || []).forEach((st, i) => {
+      const nodes = s.styleResearch?.[st]?.completed?.length || 0;
+      s.knowledge![st] = Math.min(5, Math.max(i === 0 ? 2 : 1, 1 + Math.floor(nodes * 0.7)));
+    });
+    const used = new Set<string>(['none', 'movement']);
+    for (const m of s.museums || []) for (const r of m.rooms || []) if (r.thesis) used.add(r.thesis);
+    s.thesesKnown = [...used];
+    const tiers = new Set<string>(['common', 'uncommon']);
+    for (const e of s.expeditions || []) tiers.add(e.tier);
+    s.digTiers = [...tiers] as GameState['digTiers'];
+  }
+  if (!Array.isArray(s.researchProjects)) s.researchProjects = [];
+  if (s.research) {
+    // an old "new style" project carries on as level-1 style research
+    s.researchProjects.push({ id: 'rp-old', kind: 'style', key: s.research.style, weeksLeft: s.research.weeksLeft, weeksTotal: s.research.weeksLeft });
+    s.research = null;
+  }
+  if (!Array.isArray(s.thesesKnown)) s.thesesKnown = ['none'];
+  if (!Array.isArray(s.digTiers)) s.digTiers = ['common'];
+  if (!Array.isArray(s.society)) s.society = [];
   if (typeof s.memberships !== 'number') s.memberships = 0;
   if (!s.museumRelations || typeof s.museumRelations !== 'object') s.museumRelations = {};
   if (s.weeklyReport === undefined) s.weeklyReport = null;
@@ -82,6 +105,8 @@ function migrateState(state: Partial<GameState>): GameState {
   if (!s.livingWorks || typeof s.livingWorks !== 'object') s.livingWorks = {};
   if (!Array.isArray(s.commissions)) s.commissions = [];
   registerAllLivingWorks(s);
+  if (!Array.isArray(s.artistsKnown))
+    s.artistsKnown = [...s.artists].filter(a => a.alive && a.reputation <= 50).sort((a, b) => a.reputation - b.reputation).slice(0, 6).map(a => a.id);
   if (s.auction && !s.auction.rivalName) {
     s.auction.rivalName = 'A private collector';
     s.auction.rivalId = null;
