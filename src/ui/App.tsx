@@ -1803,91 +1803,84 @@ function EventInterior({
     }
   };
 
-  // can the player bid right now? (allowed in announcing + counting,
-  // never in intro, never when already leading or beyond funds)
-  const canBid = !a.over && a.mode !== 'intro'
-    && a.leader !== 'player' && myNext <= state.funds;
-  const bidLabel = a.leader === 'player' ? 'You lead'
-    : myNext > state.funds ? 'Beyond funds'
-    : `Bid ${money(myNext)}`;
-
-  // the big centre display: intro / a count number / SOLD
-  let display: React.ReactNode;
-  if (a.mode === 'intro') display = <span className="au-ready">Ready</span>;
-  else if (a.over) display = <span className="au-sold">SOLD</span>;
-  else if (a.mode === 'announcing') display = <span className="au-dash">— —</span>;
-  else display = <span className="au-count">{a.count}</span>;
+  const myJump = a.currentBid + a.increment * 3;
+  const canBid = !a.over && a.mode !== 'intro' && a.leader !== 'player' && myNext <= state.funds;
+  const canJump = canBid && myJump <= state.funds;
+  const onJump = () => {
+    const res = Auc.playerBid(state, true);
+    if (res.error) { flash(res.error); return; }
+    setState({ ...state, auction: res.auction });
+  };
+  const countWord = a.mode === 'intro' ? 'Ready' : a.over ? 'SOLD' : a.mode === 'announcing' ? '' : ['', 'Last call', 'Twice', 'Once'][a.count] || '';
+  const value = a.value || a.estimate;
+  const deal = a.over && a.leader !== 'house' ? Auc.dealRating(a.currentBid, value) : null;
+  const paddles = (a.bidders || []).filter(b => b.active || b.out);
 
   return (
-    <div className="panel auction-stage">
-      <h2>{ev.house}
-        <span className="sub">lot {lotNum} of {ev.lotIds.length}</span>
-      </h2>
-      <div className="lot-tracker">Lots won so far: {ev.acquired?.length || 0}</div>
-      <div className="auction-art">
-        <Thumb artifact={art} size="lg" />
-        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 20 }}>
-          {art.name}
-        </div>
-        <div className="bid-line"><i>{Att.attributionLine(state, art.id)}</i></div>
-        <div className="bid-line">
-          {art.type} · {STYLES[art.style].name} · {art.year}
-        </div>
-        <div className="bid-line">est. {money(a.estimate)}</div>
-        <div><RarityPill score={art.score} /></div>
+    <div className="panel auction-stage room">
+      <div className="room-head">
+        <span className="room-house">{ev.house}</span>
+        <span className="room-lot">Lot {lotNum} / {ev.lotIds.length}{ev.acquired?.length ? ` · won ${ev.acquired.length}` : ''}</span>
       </div>
-      <div className="divider" />
+      <div className="room-lotcard">
+        <Thumb artifact={art} size="lg" />
+        <div className="room-lotinfo">
+          <strong>{art.name}</strong>
+          <i>{Att.attributionLine(state, art.id)}</i>
+          <span>{STYLES[art.style].name} · {art.type} · {art.year}</span>
+          <span className="room-est">Estimate {money(a.estLow || a.estimate)}–{money(a.estHigh || a.estimate)}</span>
+          <RarityPill score={art.score} />
+        </div>
+      </div>
+
+      <div className="room-paddles" aria-label="Bidders in the room">
+        {paddles.map(b => {
+          const lit = b.lastBidMs !== undefined && b.lastBidMs < 900;
+          const leads = a.leaderId === b.id;
+          return (
+            <div key={b.id} className={'paddle' + (b.out ? ' out' : '') + (lit ? ' lit' : '') + (leads ? ' leads' : '') + (b.kind === 'phone' ? ' phone' : '')}>
+              <span className="paddle-disc">{b.kind === 'phone' ? '☎' : b.name.replace(/^(The|A|Mme\.|Mr\.|Dr\.|Signor|Baroness|Cousin) /, '').charAt(0)}</span>
+              <span className="paddle-name">{b.name}</span>
+            </div>
+          );
+        })}
+        <div className={'paddle you' + (a.leader === 'player' ? ' leads lit' : '')}>
+          <span className="paddle-disc">You</span>
+          <span className="paddle-name">{state.galleryName}</span>
+        </div>
+      </div>
+
+      <div className={'room-price' + (a.over ? ' done' : '')}>
+        <span className="room-count" key={a.mode + a.count + (a.over ? 'x' : '')}>{countWord}</span>
+        <span className="room-amount" key={a.currentBid}>{money(a.currentBid)}</span>
+        <span className="room-msg">{a.message}</span>
+      </div>
 
       {a.mode === 'intro' ? (
-        /* paused — present the lot, wait for Begin */
-        <>
-          <div className="au-stage-msg">{a.message}</div>
-          <div className="bid-readout">opening at {money(a.currentBid)}</div>
-          <button className="primary big au-begin" onClick={onBegin}>
-            Begin Auction
-          </button>
-        </>
+        <button className="big room-begin" onClick={onBegin}>Begin the bidding</button>
+      ) : !a.over ? (
+        <div className="room-controls">
+          <button className="room-bid" disabled={!canBid} onClick={onBid}>
+            {a.leader === 'player' ? 'You lead' : myNext > state.funds ? 'Beyond your funds' : `Bid ${money(myNext)}`}</button>
+          <button className="ghost room-jump" disabled={!canJump} onClick={onJump}>Jump {money(myJump)}</button>
+          <button className="ghost room-pass" onClick={onPass}>Pass</button>
+        </div>
       ) : (
-        <>
-          <div className={'au-clock' + (a.over ? ' done' : '')}>{display}</div>
-          <div className="bid-line">
-            {a.leader === 'player' ? 'You hold the leading bid'
-              : a.leader === 'rival' ? 'A rival holds the leading bid'
-              : 'The floor is open'}
-          </div>
-          <div className="bid-readout">{money(a.currentBid)}</div>
-          <div className="rival-tag">{a.message}</div>
-
-          {/* bid controls — FIXED positions; they grey out, never move */}
-          <div className="bid-controls">
-            <button disabled={!canBid} onClick={onBid}>{bidLabel}</button>
-            <button className="ghost" disabled={a.over}
-              onClick={onPass}>
-              Pass this lot
-            </button>
-          </div>
-
-          {/* the lot-sold pause: continue only appears once over */}
-          {a.over && (
-            <div className="au-sold-bar">
-              <div className="au-sold-line">
-                {a.won
-                  ? `You won ${art.name}.`
-                  : `${art.name} went to ${a.leader === 'rival' ? a.rivalName : 'no one'}.`}
-              </div>
-              <button className="primary" onClick={onContinue}>
-                {isLast ? 'See Results' : 'Next Lot →'}
-              </button>
-            </div>
-          )}
-        </>
+        <div className={'room-verdict ' + (a.won && deal ? deal.tone : 'fair')}>
+          {a.won ? <>
+            <span className="verdict-label">{deal?.label}</span>
+            <span>Appraised at <b>{money(value)}</b> — you paid {Math.round(a.currentBid / value * 100)}%.</span>
+          </> : a.leader === 'rival' ? <>
+            <span className="verdict-label">Sold to {a.rivalName}</span>
+            <span>Appraised at <b>{money(value)}</b> — they paid {Math.round(a.currentBid / value * 100)}%.
+              {a.currentBid > value * 1.25 ? ' Let them have it.' : a.currentBid < value * 0.8 ? ' A bargain slipped away.' : ''}</span>
+          </> : <span className="verdict-label">No sale</span>}
+          <button onClick={onContinue}>{isLast ? 'See results' : 'Next lot →'}</button>
+        </div>
       )}
 
-      <div style={{ marginTop: 10, textAlign: 'center' }}>
-        <button className="ghost small"
-          onClick={() => setState(E.leaveAuction(state))}>
-          Leave the auction
-        </button>
+      <div style={{ marginTop: 12, textAlign: 'center' }}>
+        <button className="ghost small" onClick={() => setState(E.leaveAuction(state))}>Leave the sale</button>
       </div>
     </div>
   );

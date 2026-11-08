@@ -577,3 +577,54 @@ body.salon { padding-bottom: 0; }
   .salon .artists-table td:last-child button { min-height: 42px; }
 }
 .salon .bid-readout { background: var(--s-deep); border: 1px solid var(--s-gold-deep); color: var(--s-gold-bright); }
+
+/* --- the auction room (v1.5) ---------------------------------- */
+.salon .room { padding: 16px 14px; }
+.room-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.room-house { font-family: var(--s-serif); font-size: 22px; font-weight: 700; }
+.room-lot { font-size: 12px; color: var(--s-muted); letter-spacing: 0.06em; }
+.room-lotcard { display: flex; gap: 14px; align-items: center; padding: 12px; background: var(--s-surface-2); border: 1px solid var(--s-line); animation: rise 0.45s ease both; }
+.room-lotinfo { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.room-lotinfo strong { font-family: var(--s-serif); font-size: 21px; line-height: 1.1; }
+.room-lotinfo i { color: var(--s-muted); font-size: 13px; }
+.room-lotinfo span { font-size: 12px; color: var(--s-muted); }
+.room-lotinfo .room-est { color: var(--s-gold-bright); font-size: 14px; font-weight: 600; }
+.room-lotinfo .pill { align-self: flex-start; }
+
+.room-paddles { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin: 16px 0 6px; }
+.paddle { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 66px; transition: opacity 0.4s, transform 0.4s; }
+.paddle-disc {
+  width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: var(--s-surface-2); border: 2px solid var(--s-gold-deep); color: var(--s-ivory);
+  font-family: var(--s-serif); font-size: 22px; font-weight: 700; transition: all 0.25s;
+}
+.paddle.you .paddle-disc { font-family: var(--s-sans); font-size: 13px; border-color: var(--s-gold); }
+.paddle-name { font-size: 10.5px; color: var(--s-muted); text-align: center; line-height: 1.15; max-width: 66px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.paddle.leads .paddle-disc { border-color: var(--s-gold-bright); box-shadow: 0 0 0 3px rgba(227,196,120,0.25); }
+.paddle.lit .paddle-disc { background: var(--s-gold); color: var(--s-ground); animation: paddle-up 0.5s cubic-bezier(.2,1.6,.4,1); }
+.paddle.out { opacity: 0.32; transform: translateY(6px) scale(0.92); }
+.paddle.out .paddle-disc { text-decoration: line-through; border-style: dashed; }
+.paddle.phone .paddle-disc { animation: ring 0.6s ease 2; }
+@keyframes paddle-up { 0% { transform: translateY(0); } 40% { transform: translateY(-10px) scale(1.1); } 100% { transform: none; } }
+@keyframes ring { 25% { transform: rotate(-14deg); } 75% { transform: rotate(14deg); } }
+
+.room-price { text-align: center; margin: 10px 0 14px; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 120px; }
+.room-count { font-size: 12px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--s-gold); min-height: 16px; animation: fade 0.3s ease both; }
+.room-price.done .room-count { font-family: var(--s-serif); font-size: 40px; letter-spacing: 0.15em; color: var(--s-gold-bright); animation: hammer 0.55s cubic-bezier(.2,1.6,.4,1) both; text-shadow: 0 0 20px rgba(227,196,120,0.6); }
+.room-amount { font-family: var(--s-serif); font-size: 52px; font-weight: 700; line-height: 1; color: var(--s-ivory); animation: bump 0.35s ease; font-variant-numeric: tabular-nums; }
+.room-msg { font-size: 13px; color: var(--s-muted); max-width: 340px; min-height: 36px; }
+@keyframes bump { 0% { transform: scale(1.12); color: var(--s-gold-bright); } 100% { transform: none; } }
+
+.room-controls { display: grid; grid-template-columns: 2fr 1.3fr 1fr; gap: 8px; }
+.salon .room-controls button { min-height: 58px; font-size: 15px; }
+.salon .room-controls .room-bid { font-family: var(--s-serif); font-size: 20px; font-weight: 700; }
+.salon .room-begin { width: 100%; }
+.room-verdict { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px; text-align: center; border: 1px solid var(--s-line); animation: unveil 0.6s 0.4s ease both; }
+.room-verdict .verdict-label { font-family: var(--s-serif); font-size: 32px; font-weight: 700; }
+.room-verdict.great { border-color: var(--s-good); background: rgba(155,201,154,0.08); }
+.room-verdict.great .verdict-label { color: var(--s-good); }
+.room-verdict.good .verdict-label { color: #C9DDA0; }
+.room-verdict.fair .verdict-label { color: var(--s-gold-bright); }
+.room-verdict.bad { border-color: var(--s-bad); background: rgba(229,154,122,0.08); }
+.room-verdict.bad .verdict-label { color: var(--s-bad); }
+.salon .room-verdict button { margin-top: 6px; min-width: 160px; }

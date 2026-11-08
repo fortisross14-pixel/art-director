@@ -137,6 +137,34 @@ export interface AuctionState {
   over: boolean;
   won: boolean | null;
   message: string;
+  /* --- the room (v1.5) --- */
+  /** what the work is really worth; hidden until the hammer falls */
+  value?: number;
+  /** the catalogue estimate shown to the room */
+  estLow?: number;
+  estHigh?: number;
+  bidders?: AuctionBidder[];
+  /** id of the bidder holding the lead, or 'player' */
+  leaderId?: string | null;
+  /** id of the bidder who will bid next this count */
+  nextBidderId?: string | null;
+}
+
+/** one paddle in the room */
+export interface AuctionBidder {
+  id: string;
+  name: string;
+  kind: 'collector' | 'dealer' | 'cousin' | 'phone' | 'museum';
+  /** hidden: the most they will pay */
+  max: number;
+  active: boolean;
+  /** has dropped out (paddle down) */
+  out: boolean;
+  /** phone bidders join partway through (ms into the lot) */
+  joinsAt?: number;
+  cousinId?: string | null;
+  /** ms since this bidder last bid (for the paddle flash) */
+  lastBidMs?: number;
 }
 
 /** an active sponsorship of a museum's building or one of its
