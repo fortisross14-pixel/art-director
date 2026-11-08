@@ -76,12 +76,12 @@ function Auctions({ state, apply, setState, flash }: Props) {
       <div className="v2-houses">
         {AUCTION_HOUSES.map(h => {
           const joined = state.joinedHouses.includes(h.id);
-          const open = fame >= h.fameToUnlock;
+          const open = E.houseOpen(state, h, fame);
           const w = nextSale(h.id, state.week);
           return (
             <div key={h.id} className={'v2-house' + (joined ? ' joined' : open ? '' : ' locked')}>
               <div><b>{h.name}</b><span>{h.blurb}</span>
-                <small>{joined ? (w === state.week ? 'Selling this week' : `Next sale in ${w - state.week} week${w - state.week === 1 ? '' : 's'}`) : open ? `Join for ${money(h.joinFee)}` : `Needs ${h.fameToUnlock} reputation (you have ${fame})`}</small></div>
+                <small>{joined ? (w === state.week ? 'Selling this week' : `Next sale in ${w - state.week} week${w - state.week === 1 ? '' : 's'}`) : open ? `Join for ${money(h.joinFee)}` : h.worldOnly && state.league !== 'world' ? 'World League museums only' : `Needs ${h.fameToUnlock} reputation (you have ${fame})`}</small></div>
               {!joined && open && <button onClick={() => apply(E.joinHouse(state, h.id))}>Join</button>}
             </div>
           );

@@ -12,7 +12,7 @@ import { stepWeek } from '../src/engine/sim';
 import { ensureSeason, leagueRank } from '../src/engine/season';
 import { ARTIFACT_BY_ID } from '../src/data/artifacts';
 import { randInt } from '../src/engine/util';
-import { AUCTION_HOUSES, BUILDINGS, START, rarityForScore } from '../src/data/constants';
+import { AUCTION_HOUSES, BUILDINGS, START, STYLES, rarityForScore } from '../src/data/constants';
 
 const WEEKS = Number(process.argv[2] || 104);
 const RUNS = Number(process.argv[3] || 5);
@@ -35,7 +35,7 @@ function hasWall(s: GameState, style: string): boolean {
   const free = mus.rooms.filter(r => r.unlocked && r.theme === style)
     .reduce((n, r) => n + (5 - r.items.length), 0);
   const canOpen = mus.rooms.some(r => !r.unlocked)
-    && s.funds > START.roomCost + s.lastExpenses * RESERVE_WEEKS;
+    && s.funds > E.roomCost(s) + s.lastExpenses * RESERVE_WEEKS;
   return free - waiting > 0 || canOpen;
 }
 
@@ -68,8 +68,10 @@ function rotate(s: GameState): GameState {
 
 /** move to the next building once this one is full and the move is affordable */
 function maybeMove(s: GameState): GameState {
+  // on the flagship: add a wing once it's full and the wing is affordable with a cushion
+  if (!E.wingBlocker(s) && s.funds > E.wingCost(E.activeMuseum(s)) * 1.3) return E.buildWing(s).state;
   const target = E.nextBuilding(s);
-  if (!target || !E.atCapacity(s)) return s;
+  if (!target || !E.atCapacity(s) || E.moveBlocker(s, target)) return s;
   const b = BUILDINGS[target];
   if (s.funds < b.moveCost + b.maintenance * 10) return s;
   return E.moveToBuilding(s, target).state;
@@ -85,7 +87,7 @@ function hangEverything(s: GameState): GameState {
     if (!room) {
       // open and theme a new room when it's affordable
       const reserve = s.lastExpenses * RESERVE_WEEKS;
-      if (s.funds - START.roomCost < reserve) continue;
+      if (s.funds - E.roomCost(s) < reserve) continue;
       const opened = E.openRoom(s);
       if (opened.error) continue;
       s = opened.state;
@@ -103,8 +105,10 @@ function hangEverything(s: GameState): GameState {
 
 /** Attend every sale and bid on lots worth having, resolving each
  *  lot instantly: we win if our limit beats the rival's ceiling. */
+export const houseStats: Record<string, { seen: number; won: number; spent: number; useless: number; lost: number }> = {};
 function shop(s: GameState): GameState {
   for (const ev of [...s.events]) {
+    const hs = houseStats[ev.houseId] || (houseStats[ev.houseId] = { seen: 0, won: 0, spent: 0, useless: 0, lost: 0 });
     const res = E.attendEvent(s, ev.id);
     if (res.error) continue;
     s = res.state;
@@ -118,9 +122,12 @@ function shop(s: GameState): GameState {
       // a sensible director only buys what will hang: a free wall, a
       // room they can afford to open, or an upgrade on the weakest work
       const useful = inStyle && (hasWall(s, art.style) || art.score > weakestShown(s, art.style) + 4);
-      const limit = useful ? Math.min(s.funds - reserve, a.estimate * 1.2) : 0;
+      // a rich director pays up for what they want
+      const keen = 1.2 + Math.min(1.8, Math.max(0, s.funds - reserve) / 20_000_000);
+      const limit = useful ? Math.min(s.funds - reserve, a.estimate * keen) : 0;
       const wins = limit > a.rivalCeiling && limit > a.currentBid;
       const price = Math.max(a.currentBid, Math.min(limit, a.rivalCeiling + a.increment));
+      hs.seen++; if (wins) { hs.won++; hs.spent += price; } else if (!useful) hs.useless++; else hs.lost++;
       s = E.finishLot({
         ...s,
         auction: { ...a, over: true, won: wins, currentBid: wins ? price : a.rivalCeiling,
@@ -171,7 +178,27 @@ function channels(s: GameState): GameState {
   return s;
 }
 
+const ALL_STYLES = Object.keys(STYLES) as StyleId[];
+/** hire a researcher, then a curator and a publicist; research a new style whenever free */
+function staffAndResearch(s: GameState): GameState {
+  const want: string[] = ['researcher', 'curator', 'curator', 'researcher'];
+  const have = s.staff.map(x => x.role as string);
+  for (const role of want) {
+    const need = want.filter(r => r === role).length > have.filter(r => r === role).length;
+    if (!need) continue;
+    const c = s.candidates.find(x => x.role === role);
+    if (c && s.funds > c.wage * 4 + s.lastExpenses * RESERVE_WEEKS * 2) { s = E.hireStaff(s, c.id).state; break; }
+  }
+  const tier = E.researchTier(s);
+  if (tier && E.totalFame(s) >= tier.fameReq && E.canResearch(s).ok) {
+    const options = ALL_STYLES.filter(st => !s.specialties.includes(st));
+    if (options.length) s = E.startResearch(s, options[randInt(0, options.length - 1)]).state;
+  }
+  return s;
+}
+
 function manage(s: GameState): GameState {
+  s = staffAndResearch(s);
   s = channels(s);
   if (E.canStudioVisit(s)) s = E.studioVisit(s).state;
   if (s.claim) s = E.answerClaim(s, Math.random() < 0.5).state;
@@ -179,7 +206,7 @@ function manage(s: GameState): GameState {
   s = E.setTicket(s, Math.round(E.fairTicket(E.activeMuseum(s))));
   // join houses as soon as reputation opens them
   for (const h of AUCTION_HOUSES)
-    if (!s.joinedHouses.includes(h.id) && E.totalFame(s) >= h.fameToUnlock)
+    if (!s.joinedHouses.includes(h.id) && E.houseOpen(s, h))
       s = E.joinHouse(s, h.id).state;
   // modest presentation upgrades when cash is comfortable
   for (const room of E.activeMuseum(s).rooms.filter(r => r.unlocked && r.items.length)) {
@@ -199,8 +226,9 @@ function run(verbose: boolean): RunSummary {
   const choices = E.foundingArtworkChoices();
   s = E.foundMuseum(s, BACKGROUND, DISTRICT, STYLE, choices[0], choices);
   s = ensureSeason(E.nameGallery(s, 'Sim', 'Sim Gallery', START.defaultTicket));
-  const reached: Record<string, number | null> = { house2: null, house3: null, firstRare: null, firstEpic: null, national: null, world: null };
+  const reached: Record<string, number | null> = { house2: null, house3: null, firstRare: null, firstEpic: null, national: null, world: null, worldTop10: null, world1: null, full: null };
   const lines: string[] = [];
+  const snaps: string[] = [];
   let rarePlusLots = 0;
   const crateStats = { crates: 0, bigPulls: 0 };
   for (let w = 1; w <= WEEKS; w++) {
@@ -219,9 +247,13 @@ function run(verbose: boolean): RunSummary {
     if (reached.house3 === null && fame >= 600) reached.house3 = w;
     if (reached.national === null && s.league === 'national') reached.national = w;
     if (reached.world === null && s.league === 'world') reached.world = w;
+    if (s.league === 'world' && reached.worldTop10 === null && leagueRank(s) <= 10) reached.worldTop10 = w;
+    if (s.league === 'world' && reached.world1 === null && leagueRank(s) === 1) reached.world1 = w;
+    if (reached.full === null && E.activeMuseum(s).rooms.every(r => r.unlocked) && !BUILDINGS[E.activeMuseum(s).buildingId].starter && E.nextBuilding(s) === null) reached.full = w;
     const best = Math.max(0, ...s.owned.map(id => ARTIFACT_BY_ID[id].score));
     if (reached.firstRare === null && best >= 20 && w > 1) reached.firstRare = w;
     if (reached.firstEpic === null && best >= 50) reached.firstEpic = w;
+    if (w === 260 || w === 520 || w === 1040 || w === 1820) snaps.push(`y${w / 52} §${(s.funds / 1e6).toFixed(1)}M f${fame}#${leagueRank(s)}`);
     if (verbose && (w % 8 === 0 || w === 1)) {
       const r = E.totalReputation(s);
       lines.push(`wk${String(w).padStart(3)}  funds §${Math.round(s.funds).toLocaleString().padStart(9)}`
@@ -242,7 +274,8 @@ function run(verbose: boolean): RunSummary {
     + ` -> ${E.fundingModel(mix)}; reputation P${Math.round(r.prestige / rt * 100)}% Pop${Math.round(r.popularity / rt * 100)}% Pat${Math.round(r.patronage / rt * 100)}%`);
   return {
     reached, lines,
-    final: `fame ${E.totalFame(s)}, funds §${Math.round(s.funds).toLocaleString()}, `
+    final: `[${snaps.join(' | ')}] `
+      + `fame ${E.totalFame(s)}, funds §${Math.round(s.funds).toLocaleString()}, `
       + `${s.owned.length} works, best ${best.name} (${rarityForScore(best.score).name} ${best.score}), `
       + `rare+ lots seen ${rarePlusLots}, crates ${crateStats.crates} (epic+ pulls ${crateStats.bigPulls}), `
       + `doubtful works ${Object.keys(s.attributions || {}).length}, sets ${(s.completedSets || []).length}`
@@ -253,5 +286,7 @@ function run(verbose: boolean): RunSummary {
 for (let i = 0; i < RUNS; i++) {
   const r = run(i === 0);
   if (i === 0) console.log(r.lines.join('\n'));
-  console.log(`run ${i + 1}: ${JSON.stringify(r.reached)}  ${r.final}`);
+  const yrs = Object.entries(r.reached).map(([k, v]) => `${k} ${v === null ? '—' : 'y' + (v / 52).toFixed(1)}`).join(' · ');
+  console.log(`run ${i + 1}: ${yrs}\n   ${r.final}`);
+  if (i === 0) console.log('   houses', JSON.stringify(houseStats));
 }

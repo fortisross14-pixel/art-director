@@ -99,7 +99,9 @@ export function rivalOwnedIds(s: GameState): Set<string> {
 /** a cousin's museum strength, from the works they actually own */
 function rivalQuality(r: RivalPlayer): number {
   const ids = [...(r.collection || []), ...(r.heirloomId ? [r.heirloomId] : [])];
-  return ids.reduce((n, id) => n + (ARTIFACT_BY_ID[id]?.score || 0), 0);
+  // like your own prestige: the best works count fully, the rest less
+  return ids.map(id => ARTIFACT_BY_ID[id]?.score || 0).sort((a, b) => b - a).slice(0, 125)
+    .reduce((n, sc, i) => n + sc * Math.max(0.25, Math.pow(0.97, i)), 0);
 }
 
 /** Give a cousin a work (from an auction they won or a private buy). */
@@ -769,8 +771,13 @@ export function startResearch(s: GameState, style: StyleId): Result {
 
 /* --- rooms ------------------------------------------------- */
 /** what the next room costs here (cheap in artist quarters, dear in heritage streets) */
+/** Each room costs more than the last, and big buildings cost more
+ *  per room: opening up a flagship is a years-long project. */
 export function roomCost(s: GameState): number {
-  return Math.round(START.roomCost * districtRules(activeMuseum(s)).roomCostMult);
+  const m = activeMuseum(s);
+  const open = m.rooms.filter(r => r.unlocked).length;
+  const scale = Math.sqrt(Math.max(1, BUILDINGS[m.buildingId].capacity / 500));
+  return Math.round(START.roomCost * scale * Math.pow(1.22, Math.min(24, Math.max(0, open - 1))) * districtRules(m).roomCostMult / 500) * 500;
 }
 export function openRoom(s: GameState): Result {
   const locked = activeMuseum(s).rooms.find(r => !r.unlocked);
@@ -816,9 +823,52 @@ export function nextBuilding(s: GameState): string | null {
   const i = ladder.indexOf(cur);
   return i >= 0 ? ladder[i + 1] || null : null;
 }
+/* --- wings: the late-game way to grow a flagship ----------- */
+export const MAX_WINGS = 6;
+const WING_NAMES = ['The New Wing', 'The Garden Wing', 'The Modern Wing', "The Founders' Wing", 'The River Wing', 'The Jubilee Wing'];
+export const wingCost = (m: Museum) => 3_000_000 * Math.pow(2, m.wings || 0);
+/** why a wing can't be built yet, or null */
+export function wingBlocker(s: GameState): string | null {
+  const m = activeMuseum(s);
+  if (nextBuilding(s) !== null || BUILDINGS[m.buildingId].starter) return 'Wings are built on your final, flagship building.';
+  if ((m.wings || 0) >= MAX_WINGS) return 'There is no room left on the site.';
+  if (m.rooms.some(r => !r.unlocked)) return 'Open every room you have first.';
+  if (s.funds < wingCost(m)) return `A new wing costs ${money(wingCost(m))}.`;
+  return null;
+}
+export function buildWing(s: GameState): Result {
+  const blocked = wingBlocker(s);
+  if (blocked) return { state: s, error: blocked };
+  const next = fork(s);
+  const m = activeMuseum(next);
+  const cost = wingCost(m);
+  const n = m.wings || 0;
+  const hallId = 'wing' + n;
+  const start = m.rooms.length;
+  const fresh: Room[] = Array.from({ length: 5 }, (_, i) => ({
+    id: start + i, hallId, hallName: WING_NAMES[n], unlocked: i === 0,
+    theme: null, researching: null, items: [], decoration: 0, interpretation: 0, amenities: 0,
+  }));
+  next.museums = next.museums.map(x => x.id === m.id ? { ...x, wings: n + 1, rooms: [...x.rooms, ...fresh] } : x);
+  next.funds -= cost;
+  return { state: logged(next, { kind: 'good', text: `${WING_NAMES[n]} opens: five new rooms, and room for more visitors. (${money(cost)})` }) };
+}
+
+const LEAGUE_ORDER = ['city', 'national', 'world'];
+/** why a museum can't move in yet (reputation or league), or null */
+export function moveBlocker(s: GameState, buildingId: string): string | null {
+  const b = BUILDINGS[buildingId];
+  if (!b) return 'Unknown building.';
+  if (b.needsLeague && LEAGUE_ORDER.indexOf(s.league || 'city') < LEAGUE_ORDER.indexOf(b.needsLeague))
+    return `Only for ${b.needsLeague === 'national' ? 'National' : 'World'} League museums.`;
+  if (b.needsFame && totalFame(s) < b.needsFame) return `Needs ${b.needsFame} reputation (you have ${totalFame(s)}).`;
+  return null;
+}
 export function moveToBuilding(s: GameState, buildingId: string): Result {
   const b = BUILDINGS[buildingId];
   if (!b) return { state: s, error: 'Unknown building.' };
+  const blocked = moveBlocker(s, buildingId);
+  if (blocked) return { state: s, error: blocked };
   if (s.funds < b.moveCost)
     return { state: s, error: `Moving costs ${money(b.moveCost)}.` };
   const rooms = makeRooms(buildingId);
@@ -973,8 +1023,11 @@ function bandIndexForScore(score: number): number {
 }
 
 /** which houses the player can currently SEE (fame-unlocked) */
+export function houseOpen(s: GameState, h: AuctionHouseDef, fame = totalFame(s)): boolean {
+  return fame >= h.fameToUnlock && (!h.worldOnly || s.league === 'world');
+}
 export function unlockedHouses(s: GameState): AuctionHouseDef[] {
-  return AUCTION_HOUSES.filter(h => totalFame(s) >= h.fameToUnlock);
+  return AUCTION_HOUSES.filter(h => houseOpen(s, h));
 }
 /** houses the player has actually JOINED (paid the join fee) */
 export function joinedHouses(s: GameState): AuctionHouseDef[] {
@@ -986,8 +1039,8 @@ export function joinHouse(s: GameState, houseId: string): Result {
   if (!h) return { state: s, error: 'Unknown auction house.' };
   if (s.joinedHouses.includes(houseId))
     return { state: s, error: 'Already a member of that house.' };
-  if (totalFame(s) < h.fameToUnlock)
-    return { state: s, error: `That house opens at ${h.fameToUnlock} fame.` };
+  if (!houseOpen(s, h))
+    return { state: s, error: h.worldOnly && s.league !== 'world' ? 'Only World League museums are invited.' : `That house opens at ${h.fameToUnlock} fame.` };
   if (s.funds < h.joinFee)
     return { state: s, error: `Joining costs ${money(h.joinFee)}.` };
   let next = fork(s);
@@ -1023,18 +1076,18 @@ function buildHouseAuction(s: GameState, h: AuctionHouseDef): GameEvent | null {
   const pool = ARTIFACTS.filter(a => {
     if (s.owned.includes(a.id) || cousins.has(a.id)) return false;
     const band = bandIndexForScore(a.score);
-    if (band >= 5) return false;                 // never auction World Icons
+    if (band >= 5) return (h.iconWeight || 0) > 0; // World Icons only at the evening sale
     return h.rarityWeights[band] > 0;
   });
   if (pool.length === 0) return null;
 
-  const count = randInt(3, 5) + museumTypeDef(s).extraLots;
+  const count = h.id === 'house4' ? 3 : randInt(3, 5) + museumTypeDef(s).extraLots;
   const avail = [...pool];
   const lots: string[] = [];
   for (let i = 0; i < count && avail.length; i++) {
     const weighted = avail.map(a => {
       const band = bandIndexForScore(a.score);
-      let w = h.rarityWeights[band] || 0.01;
+      let w = (band >= 5 ? h.iconWeight : h.rarityWeights[band]) || 0.01;
       // favour the player's unlocked styles ~3x so rooms are fillable
       if (styleSet.has(a.style)) w *= 3;
       return { a, w };
@@ -1114,6 +1167,7 @@ function addLot(events: GameEvent[], h: AuctionHouseDef, id: string): GameEvent 
 export function houseSellsInWeek(houseId: string, week: number): boolean {
   if (houseId === 'house1') return true;
   if (houseId === 'house2') return week % 2 === 1;
+  if (houseId === 'house4') return week % 6 === 3;
   return week % 4 === 2;
 }
 
@@ -2325,6 +2379,14 @@ export function museumQuality(s: GameState, museumId?: string): number {
   return q;
 }
 
+/** quality for prestige: the best works count fully, each further
+ *  one a little less (never below a quarter), so masterpieces matter
+ *  more than sheer numbers */
+export function weightedQuality(s: GameState, mus: Museum): number {
+  const scores = mus.rooms.flatMap(r => r.items.map(id => workOf(s, id).score)).sort((a, b) => b - a);
+  return scores.reduce((n, sc, i) => n + sc * Math.max(0.25, Math.pow(0.97, i)), 0);
+}
+
 /** placed-artifact count (active museum) */
 export function placedCount(s: GameState, museumId?: string): number {
   const mus = museumId ? museumById(s, museumId) : activeMuseum(s);
@@ -2420,7 +2482,7 @@ export function dailyVisitors(s: GameState, museum?: Museum): number {
 export function buildingCapacity(mus: Museum): number {
   const b = BUILDINGS[mus.buildingId];
   // each open room adds a little circulation space
-  return Math.round(b.capacity * districtRules(mus).capacityMult * (0.8 + 0.2 * mus.rooms.filter(r => r.unlocked).length
+  return Math.round(b.capacity * (1 + 0.25 * (mus.wings || 0)) * districtRules(mus).capacityMult * (0.3 + 0.7 * mus.rooms.filter(r => r.unlocked).length
     / Math.max(1, mus.rooms.length)));
 }
 
@@ -2447,8 +2509,10 @@ export function fairTicket(mus: Museum): number {
   return (6 + Math.min(19, Math.sqrt(Math.max(0, mus.fame)) * 0.42)) * districtRules(mus).ticketTolerance;
 }
 
-/** per-visitor running cost: front of house, security, cleaning */
+/** per-visitor running cost: front of house, security, cleaning —
+ *  about §3.50 for a small gallery, rising with reputation */
 export const COST_PER_VISITOR = 3.5;
+export const costPerVisitor = (m: Museum) => Math.min(20, COST_PER_VISITOR + Math.max(0, m.fame) / 400);
 
 /** weekly visitors for a museum — six open days, shaped by
  *  ticket-price demand and weekly noise. */
@@ -2502,7 +2566,15 @@ export function totalVisitors(s: GameState): number {
   return openMuseums(s).reduce((acc, m) => acc + computeVisitors(s, m), 0);
 }
 
-/** weekly expenses = building maintenance + staff wages */
+/** insurance and conservation: a small weekly share of what the
+ *  collection is worth, so success costs more to look after */
+export const CARE_RATE = 0.0008;
+export function collectionCare(s: GameState): number {
+  let v = 0;
+  for (const id of s.owned) if (ARTIFACT_BY_ID[id] || s.livingWorks?.[id]) v += workOf(s, id).value;
+  return Math.round(v * CARE_RATE);
+}
+
 /** weekly expenses = building maintenance + staff wages + a small
  *  per-room variable cost. Most upkeep (security, front office) is
  *  fixed in the building's maintenance figure; opening extra rooms
@@ -2515,12 +2587,12 @@ export function computeExpenses(s: GameState): number {
   for (const m of openMuseums(s)) {
     const roomsOpen = m.rooms.filter(r => r.unlocked).length;
     const roomSurcharge = Math.max(0, roomsOpen - 1) * 120;
-    buildings += BUILDINGS[m.buildingId].maintenance * districtRules(m).maintenanceMult + roomSurcharge;
+    buildings += BUILDINGS[m.buildingId].maintenance * (1 + 0.3 * (m.wings || 0)) * districtRules(m).maintenanceMult + roomSurcharge;
   }
-  // busier museums cost more to run
-  const footfall = openMuseums(s).reduce((n, m) => n + dailyVisitors(s, m) * 6, 0);
-  buildings += Math.round(footfall * COST_PER_VISITOR);
-  const gross = buildings + weeklyLoanFees(s);
+  // busier museums cost more to run, and a famous one spends more on
+  // every visitor: guards, conservators, educators
+  for (const m of openMuseums(s)) buildings += Math.round(dailyVisitors(s, m) * 6 * costPerVisitor(m));
+  const gross = buildings + weeklyLoanFees(s) + collectionCare(s);
   // a "steward" curator trims building upkeep — up to 30% off
   // (wages are never discounted).
   const steward = specialtySkill(s, 'steward');
@@ -2550,12 +2622,12 @@ export function reputationTargets(s: GameState, m: Museum): Reputation {
   const research = Object.values(s.styleResearch || {})
     .reduce((n, r) => n + (r?.completed?.length || 0), 0);
   const completed = m.rooms.filter(roomIsFull).length;
-  const prestige = museumQuality(s, m.id) * 0.45 + avgQuality * 0.3
+  const prestige = weightedQuality(s, m) * 0.45 + avgQuality * 0.3
     + research * 3 + completed * 6 + museumCohesionBonus(m) * 0.5
     + displayedCompleteSets(s).length * 15;
   const sig = signatureOnDisplay(s, m);
   const free = m.ticket <= 0;
-  const popularity = dailyVisitors(s, m) * 0.4 + budgetEffects(s, m).popularity
+  const popularity = crowdPopularity(dailyVisitors(s, m)) + budgetEffects(s, m).popularity
     + (free ? 10 : 0)
     + (sig ? workOf(s, sig).score * 0.4 : 0)
     + specialtySkill(s, 'publicist') * 12 + (m.adWeeksLeft > 0 ? 8 : 0);
@@ -2564,6 +2636,12 @@ export function reputationTargets(s: GameState, m: Museum): Reputation {
     + m.sponsors.length * 14 + shownLoans * 5
     + Math.sqrt(s.endowment || 0) / 25 + (free ? 8 : 0);
   return { prestige, popularity, patronage };
+}
+
+/** crowds make you popular, with diminishing returns past ~300 a day */
+export function crowdPopularity(perDay: number): number {
+  if (perDay <= 300) return perDay * 0.4;
+  return 120 + 14 * (Math.sqrt(perDay) - Math.sqrt(300));
 }
 
 function accrueReputation(s: GameState): void {
@@ -2781,9 +2859,9 @@ export function advanceWeek(s: GameState): GameState {
   // open-ended play — no week cap. Detect newly unlocked auction
   // houses and announce them.
   for (const h of AUCTION_HOUSES) {
-    if (totalFame(next) >= h.fameToUnlock && h.fameToUnlock > 0
+    if (houseOpen(next, h) && h.fameToUnlock > 0
         && !next.joinedHouses.includes(h.id)
-        && totalFame(s) < h.fameToUnlock) {
+        && !houseOpen(s, h)) {
       next = logged(next, { kind: 'good',
         text: `Your fame opens the doors of ${h.name} — join it from the Week tab.` });
     }

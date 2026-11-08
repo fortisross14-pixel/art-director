@@ -38,7 +38,7 @@ export const DEFAULT_PLAN: BudgetPlan = {
 /** budget stocks fade by this share each week */
 const STOCK_DECAY = 0.08;
 /** the endowment pays this share of itself into funds each week */
-const ENDOWMENT_YIELD = 0.0025;
+const ENDOWMENT_YIELD = 0.001;
 
 export const LEAGUE_NAMES: Record<League, string> = {
   city: 'City League', national: 'National League', world: 'World League',

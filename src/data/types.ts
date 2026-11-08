@@ -57,6 +57,8 @@ export interface BuildingDef {
   maintenance: number;   // weekly upkeep expense
   capacity: number;      // comfortable daily visitors before crowds are turned away
   starter?: boolean;     // a small first home, one per district
+  needsFame?: number;    // reputation needed before you can move in
+  needsLeague?: 'national' | 'world'; // league needed before you can move in
 }
 
 /* --- districts --------------------------------------------- */
@@ -287,6 +289,7 @@ export interface Museum {
   loans: Loan[];                  // works on loan, hanging here
   reputation?: Reputation;        // breakdown of `fame`
   open: boolean;                  // false once the museum is closed
+  wings?: number;                 // wings added to a flagship building
 }
 
 export interface StyleResearchState {

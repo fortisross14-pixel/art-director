@@ -95,7 +95,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   cathedral: {
     id: 'cathedral', name: "The Cathedral Museum",
     blurb: "A deconsecrated cathedral in the old town — the city's most famous address.",
-    prestige: 1.5, moveCost: 200000, maintenance: 40000, capacity: 2600,
+    prestige: 1.5, moveCost: 200000, maintenance: 40000, capacity: 2600, needsLeague: 'national',
     halls: [
       { id: 'ca0', name: 'North Hall', roomCap: 5, startRooms: 1 },
       { id: 'ca1', name: 'South Hall', roomCap: 5, startRooms: 0 },
@@ -107,7 +107,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   library: {
     id: 'library', name: "The Great Library",
     blurb: "The university's neo-classical library, given over to the museum.",
-    prestige: 1.5, moveCost: 180000, maintenance: 36000, capacity: 2400,
+    prestige: 1.5, moveCost: 180000, maintenance: 36000, capacity: 2400, needsLeague: 'national',
     halls: [
       { id: 'li0', name: 'North Hall', roomCap: 5, startRooms: 1 },
       { id: 'li1', name: 'South Hall', roomCap: 5, startRooms: 0 },
@@ -119,7 +119,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   foundry: {
     id: 'foundry', name: "The Old Foundry",
     blurb: "A vast ironworks turned into the city's beating cultural heart.",
-    prestige: 1.35, moveCost: 140000, maintenance: 26000, capacity: 2200,
+    prestige: 1.35, moveCost: 140000, maintenance: 26000, capacity: 2200, needsLeague: 'national',
     halls: [
       { id: 'fo0', name: 'North Hall', roomCap: 5, startRooms: 1 },
       { id: 'fo1', name: 'South Hall', roomCap: 5, startRooms: 0 },
@@ -131,7 +131,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   exchange: {
     id: 'exchange', name: "The Exchange",
     blurb: "The old stock exchange: marble trading floors, glass roofs, money everywhere.",
-    prestige: 1.45, moveCost: 260000, maintenance: 55000, capacity: 3200,
+    prestige: 1.45, moveCost: 260000, maintenance: 55000, capacity: 2800, needsLeague: 'national',
     halls: [
       { id: 'ex0', name: 'North Hall', roomCap: 5, startRooms: 1 },
       { id: 'ex1', name: 'South Hall', roomCap: 5, startRooms: 0 },
@@ -143,7 +143,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   conservatory: {
     id: 'conservatory', name: "The Grand Conservatory",
     blurb: "A glasshouse palace among the gardens, sculptures under palms.",
-    prestige: 1.45, moveCost: 170000, maintenance: 34000, capacity: 2400,
+    prestige: 1.45, moveCost: 170000, maintenance: 34000, capacity: 2400, needsLeague: 'national',
     halls: [
       { id: 'co0', name: 'North Hall', roomCap: 5, startRooms: 1 },
       { id: 'co1', name: 'South Hall', roomCap: 5, startRooms: 0 },
@@ -155,7 +155,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   terminal: {
     id: 'terminal', name: "The Grand Terminal",
     blurb: "A disused ocean terminal — enormous halls over the water.",
-    prestige: 1.35, moveCost: 160000, maintenance: 30000, capacity: 3000,
+    prestige: 1.35, moveCost: 160000, maintenance: 30000, capacity: 2600, needsLeague: 'national',
     halls: [
       { id: 'te0', name: 'North Hall', roomCap: 5, startRooms: 1 },
       { id: 'te1', name: 'South Hall', roomCap: 5, startRooms: 0 },
@@ -174,7 +174,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   town: {
     id: 'town', name: 'Town Museum',
     blurb: 'A civic museum across two halls — room to grow.',
-    prestige: 1.25, moveCost: 22000, maintenance: 8000, capacity: 500,
+    prestige: 1.25, moveCost: 22000, maintenance: 8000, capacity: 500, needsFame: 200,
     halls: [
       { id: 'east', name: 'East Hall', roomCap: 4, startRooms: 1 },
       { id: 'west', name: 'West Hall', roomCap: 3, startRooms: 0 },
@@ -184,7 +184,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   palace: {
     id: 'palace', name: 'Historic Palace',
     blurb: 'A grand palace of five wings — the address of a great museum.',
-    prestige: 1.6, moveCost: 220000, maintenance: 46000, capacity: 3000,
+    prestige: 1.6, moveCost: 220000, maintenance: 46000, capacity: 3000, needsLeague: 'national',
     halls: [
       { id: 'north', name: 'North Wing', roomCap: 5, startRooms: 1 },
       { id: 'south', name: 'South Wing', roomCap: 5, startRooms: 0 },
@@ -196,7 +196,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   salon: {
     id: 'salon', name: 'The Beaux-Arts Salon',
     blurb: 'An elegant exhibition house — modest, but a fine pedigree.',
-    prestige: 1.4, moveCost: 95000, maintenance: 19000, capacity: 900,
+    prestige: 1.4, moveCost: 95000, maintenance: 19000, capacity: 900, needsFame: 200,
     halls: [
       { id: 'upper', name: 'Upper Salon', roomCap: 4, startRooms: 1 },
       { id: 'lower', name: 'Lower Salon', roomCap: 4, startRooms: 0 },
@@ -206,7 +206,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   college: {
     id: 'college', name: 'University Museum',
     blurb: 'A teaching museum on campus — busy halls, young crowds.',
-    prestige: 1.2, moveCost: 40000, maintenance: 11000, capacity: 650,
+    prestige: 1.2, moveCost: 40000, maintenance: 11000, capacity: 650, needsFame: 200,
     halls: [
       { id: 'first',  name: 'First Floor',  roomCap: 4, startRooms: 1 },
       { id: 'second', name: 'Second Floor', roomCap: 4, startRooms: 0 },
@@ -217,7 +217,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   loft: {
     id: 'loft', name: 'The Artists\u2019 Loft',
     blurb: 'A converted studio block — raw character, low overhead.',
-    prestige: 1.15, moveCost: 30000, maintenance: 6500, capacity: 350,
+    prestige: 1.15, moveCost: 30000, maintenance: 6500, capacity: 350, needsFame: 200,
     halls: [
       { id: 'main', name: 'Loft Floor', roomCap: 5, startRooms: 1 },
     ],
@@ -226,7 +226,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   tower: {
     id: 'tower', name: 'The Gallery Tower',
     blurb: 'A high-rise museum — many floors, steep rent, vast footfall.',
-    prestige: 1.45, moveCost: 130000, maintenance: 33000, capacity: 1600,
+    prestige: 1.45, moveCost: 130000, maintenance: 33000, capacity: 1000, needsFame: 200,
     halls: [
       { id: 'f2', name: 'Second Floor', roomCap: 3, startRooms: 1 },
       { id: 'f3', name: 'Third Floor',  roomCap: 3, startRooms: 0 },
@@ -238,7 +238,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   pavilion: {
     id: 'pavilion', name: 'The Park Pavilion',
     blurb: 'A glass pavilion among the gardens — calm, and a gentle upkeep.',
-    prestige: 1.3, moveCost: 60000, maintenance: 13000, capacity: 700,
+    prestige: 1.3, moveCost: 60000, maintenance: 13000, capacity: 700, needsFame: 200,
     halls: [
       { id: 'glass', name: 'Glass Hall', roomCap: 4, startRooms: 1 },
       { id: 'garden', name: 'Garden Hall', roomCap: 4, startRooms: 0 },
@@ -248,7 +248,7 @@ export const BUILDINGS: Record<string, BuildingDef> = {
   warehouse: {
     id: 'warehouse', name: 'The Dockside Warehouse',
     blurb: 'A cavernous old warehouse on the water — cheap space, lots of it.',
-    prestige: 1.2, moveCost: 70000, maintenance: 12000, capacity: 1000,
+    prestige: 1.2, moveCost: 70000, maintenance: 12000, capacity: 1000, needsFame: 200,
     halls: [
       { id: 'hold', name: 'The Hold',    roomCap: 5, startRooms: 1 },
       { id: 'wharf', name: 'Wharf Hall', roomCap: 5, startRooms: 0 },
@@ -325,6 +325,8 @@ export interface AuctionHouseDef {
   attendFee: number;          // fee charged each time you attend
   /** rarity weights: [common, uncommon, rare, epic, legend] */
   rarityWeights: [number, number, number, number, number];
+  worldOnly?: boolean;        // only World League museums may join
+  iconWeight?: number;        // weight for World Icons (otherwise never sold)
 }
 export const AUCTION_HOUSES: AuctionHouseDef[] = [
   {
@@ -347,6 +349,13 @@ export const AUCTION_HOUSES: AuctionHouseDef[] = [
     blurb: 'A world auction house where legendary works change hands.',
     fameToUnlock: 600, joinFee: 1500, attendFee: 250,
     rarityWeights: [50, 20, 15, 12, 3],
+  },
+  {
+    id: 'house4',
+    name: 'The Meridian Evening Sale',
+    blurb: 'Black tie, phone banks, and the works museums wait decades for.',
+    fameToUnlock: 1500, joinFee: 25000, attendFee: 2000,
+    rarityWeights: [0, 0, 0, 55, 35], worldOnly: true, iconWeight: 10,
   },
 ];
 
@@ -432,55 +441,55 @@ export const EXPEDITION_WEEKS = 4;
    ============================================================ */
 export const STATIC_MUSEUMS: StaticMuseum[] = [
   /* --- global icons (8) --- */
-  { id: 'louvre',      name: 'The Louvre',                 city: 'Paris',     tier: 'global', inYourCity: false, fame: 2400, quality: 2100, visitors: 85800 },
-  { id: 'british',     name: 'The British Museum',         city: 'London',    tier: 'global', inYourCity: false, fame: 2150, quality: 2300, visitors: 109400 },
-  { id: 'met',         name: 'The Metropolitan Museum',    city: 'New York',  tier: 'global', inYourCity: false, fame: 2050, quality: 1950, visitors: 88700 },
-  { id: 'prado',       name: 'Museo del Prado',            city: 'Madrid',    tier: 'global', inYourCity: false, fame: 1700, quality: 1850, visitors: 122600 },
-  { id: 'vatican',     name: 'The Vatican Museums',        city: 'Vatican',   tier: 'global', inYourCity: false, fame: 1900, quality: 2000, visitors: 70800 },
-  { id: 'uffizi',      name: 'The Uffizi Gallery',         city: 'Florence',  tier: 'global', inYourCity: false, fame: 1650, quality: 1700, visitors: 101900 },
-  { id: 'hermitage',   name: 'The State Hermitage',        city: 'St. Petersburg', tier: 'global', inYourCity: false, fame: 1750, quality: 1900, visitors: 112300 },
-  { id: 'palace-mus',  name: 'The Palace Museum',          city: 'Beijing',   tier: 'global', inYourCity: false, fame: 1800, quality: 1600, visitors: 137600 },
+  { id: 'louvre',      name: 'The Louvre',                 city: 'Paris',     tier: 'global', inYourCity: false, fame: 4320, quality: 2100, visitors: 85800 },
+  { id: 'british',     name: 'The British Museum',         city: 'London',    tier: 'global', inYourCity: false, fame: 3870, quality: 2300, visitors: 109400 },
+  { id: 'met',         name: 'The Metropolitan Museum',    city: 'New York',  tier: 'global', inYourCity: false, fame: 3690, quality: 1950, visitors: 88700 },
+  { id: 'prado',       name: 'Museo del Prado',            city: 'Madrid',    tier: 'global', inYourCity: false, fame: 3060, quality: 1850, visitors: 122600 },
+  { id: 'vatican',     name: 'The Vatican Museums',        city: 'Vatican',   tier: 'global', inYourCity: false, fame: 3420, quality: 2000, visitors: 70800 },
+  { id: 'uffizi',      name: 'The Uffizi Gallery',         city: 'Florence',  tier: 'global', inYourCity: false, fame: 2970, quality: 1700, visitors: 101900 },
+  { id: 'hermitage',   name: 'The State Hermitage',        city: 'St. Petersburg', tier: 'global', inYourCity: false, fame: 3150, quality: 1900, visitors: 112300 },
+  { id: 'palace-mus',  name: 'The Palace Museum',          city: 'Beijing',   tier: 'global', inYourCity: false, fame: 3240, quality: 1600, visitors: 137600 },
 
   /* --- national (17) --- */
-  { id: 'reinasofia', name: 'Museo Reina Sofía',           city: 'Madrid',    tier: 'national', inYourCity: false, fame: 920,  quality: 860,  visitors: 8200 },
-  { id: 'smithsonian',name: 'The Smithsonian',             city: 'Washington',tier: 'national', inYourCity: false, fame: 1100, quality: 940,  visitors: 11000 },
-  { id: 'nationalgal',name: 'The National Gallery',        city: 'London',    tier: 'national', inYourCity: false, fame: 1050, quality: 1120, visitors: 41900 },
-  { id: 'orsay',      name: "Musée d'Orsay",               city: 'Paris',     tier: 'national', inYourCity: false, fame: 980,  quality: 1010, visitors: 8800 },
-  { id: 'rijks',      name: 'The Rijksmuseum',             city: 'Amsterdam', tier: 'national', inYourCity: false, fame: 1010, quality: 1080, visitors: 18800 },
-  { id: 'natmuschina',name: 'National Museum of China',    city: 'Beijing',   tier: 'national', inYourCity: false, fame: 870,  quality: 760,  visitors: 12500 },
-  { id: 'anthro-mx',  name: 'National Anthropology Museum',city: 'Mexico City',tier:'national', inYourCity: false, fame: 780,  quality: 880,  visitors: 6400 },
-  { id: 'egyptmus',   name: 'The Egyptian Museum',         city: 'Cairo',     tier: 'national', inYourCity: false, fame: 940,  quality: 1240, visitors: 5200 },
-  { id: 'tokyonat',   name: 'Tokyo National Museum',       city: 'Tokyo',     tier: 'national', inYourCity: false, fame: 820,  quality: 900,  visitors: 7300 },
-  { id: 'tate',       name: 'Tate Modern',                 city: 'London',    tier: 'national', inYourCity: false, fame: 990,  quality: 740,  visitors: 10200 },
-  { id: 'moma',       name: 'The Museum of Modern Art',    city: 'New York',  tier: 'national', inYourCity: false, fame: 1080, quality: 820,  visitors: 8600 },
-  { id: 'natindia',   name: 'National Museum of India',    city: 'New Delhi', tier: 'national', inYourCity: false, fame: 690,  quality: 720,  visitors: 4800 },
-  { id: 'pushkin',    name: 'The Pushkin Museum',          city: 'Moscow',    tier: 'national', inYourCity: false, fame: 640,  quality: 700,  visitors: 4100 },
-  { id: 'kunsthist',  name: 'Kunsthistorisches Museum',    city: 'Vienna',    tier: 'national', inYourCity: false, fame: 760,  quality: 880,  visitors: 4600 },
+  { id: 'reinasofia', name: 'Museo Reina Sofía',           city: 'Madrid',    tier: 'national', inYourCity: false, fame: 2120,  quality: 860,  visitors: 8200 },
+  { id: 'smithsonian',name: 'The Smithsonian',             city: 'Washington',tier: 'national', inYourCity: false, fame: 2530, quality: 940,  visitors: 11000 },
+  { id: 'nationalgal',name: 'The National Gallery',        city: 'London',    tier: 'national', inYourCity: false, fame: 2420, quality: 1120, visitors: 41900 },
+  { id: 'orsay',      name: "Musée d'Orsay",               city: 'Paris',     tier: 'national', inYourCity: false, fame: 2250,  quality: 1010, visitors: 8800 },
+  { id: 'rijks',      name: 'The Rijksmuseum',             city: 'Amsterdam', tier: 'national', inYourCity: false, fame: 2320, quality: 1080, visitors: 18800 },
+  { id: 'natmuschina',name: 'National Museum of China',    city: 'Beijing',   tier: 'national', inYourCity: false, fame: 2000,  quality: 760,  visitors: 12500 },
+  { id: 'anthro-mx',  name: 'National Anthropology Museum',city: 'Mexico City',tier:'national', inYourCity: false, fame: 1250,  quality: 880,  visitors: 6400 },
+  { id: 'egyptmus',   name: 'The Egyptian Museum',         city: 'Cairo',     tier: 'national', inYourCity: false, fame: 2160,  quality: 1240, visitors: 5200 },
+  { id: 'tokyonat',   name: 'Tokyo National Museum',       city: 'Tokyo',     tier: 'national', inYourCity: false, fame: 1890,  quality: 900,  visitors: 7300 },
+  { id: 'tate',       name: 'Tate Modern',                 city: 'London',    tier: 'national', inYourCity: false, fame: 2280,  quality: 740,  visitors: 10200 },
+  { id: 'moma',       name: 'The Museum of Modern Art',    city: 'New York',  tier: 'national', inYourCity: false, fame: 2480, quality: 820,  visitors: 8600 },
+  { id: 'natindia',   name: 'National Museum of India',    city: 'New Delhi', tier: 'national', inYourCity: false, fame: 1590,  quality: 720,  visitors: 4800 },
+  { id: 'pushkin',    name: 'The Pushkin Museum',          city: 'Moscow',    tier: 'national', inYourCity: false, fame: 1470,  quality: 700,  visitors: 4100 },
+  { id: 'kunsthist',  name: 'Kunsthistorisches Museum',    city: 'Vienna',    tier: 'national', inYourCity: false, fame: 1750,  quality: 880,  visitors: 4600 },
   /* national museums in YOUR city (2) */
-  { id: 'city-natl-1',name: 'The Whitlock National Museum',city: 'Your City', tier: 'national', inYourCity: true,  fame: 700,  quality: 660,  visitors: 5200 },
-  { id: 'city-natl-2',name: 'The Grand Civic Museum',      city: 'Your City', tier: 'national', inYourCity: true,  fame: 620,  quality: 720,  visitors: 4400 },
+  { id: 'city-natl-1',name: 'The Whitlock National Museum',city: 'Your City', tier: 'national', inYourCity: true,  fame: 1610,  quality: 660,  visitors: 5200 },
+  { id: 'city-natl-2',name: 'The Grand Civic Museum',      city: 'Your City', tier: 'national', inYourCity: true,  fame: 1430,  quality: 720,  visitors: 4400 },
   /* global museum in your city (1) */
-  { id: 'city-global',name: 'The Imperial Museum',         city: 'Your City', tier: 'global',   inYourCity: true,  fame: 1500, quality: 1450, visitors: 16000 },
+  { id: 'city-global',name: 'The Imperial Museum',         city: 'Your City', tier: 'global',   inYourCity: true,  fame: 2700, quality: 1450, visitors: 16000 },
 
   /* --- regional (12) --- */
-  { id: 'reg-1', name: 'Ashbourne Museum of Art',  city: 'Ashbourne',  tier: 'regional', inYourCity: false, fame: 340, quality: 300, visitors: 8600 },
-  { id: 'reg-2', name: 'The Castleton Gallery',    city: 'Castleton',  tier: 'regional', inYourCity: false, fame: 280, quality: 360, visitors: 8900 },
-  { id: 'reg-3', name: 'Fairhaven Art Institute',  city: 'Fairhaven',  tier: 'regional', inYourCity: false, fame: 410, quality: 320, visitors: 8200 },
-  { id: 'reg-4', name: 'The Linden Collection',    city: 'Linden',     tier: 'regional', inYourCity: false, fame: 250, quality: 280, visitors: 3100 },
-  { id: 'reg-5', name: 'Pemberton Museum',         city: 'Pemberton',  tier: 'regional', inYourCity: false, fame: 360, quality: 340, visitors: 8600 },
-  { id: 'reg-6', name: 'The Hartwell Gallery',     city: 'Hartwell',   tier: 'regional', inYourCity: false, fame: 300, quality: 260, visitors: 8800 },
-  { id: 'reg-7', name: 'Brightwater Art Museum',   city: 'Brightwater',tier: 'regional', inYourCity: false, fame: 430, quality: 380, visitors: 8200 },
-  { id: 'reg-8', name: 'The Aldermoor Institute',  city: 'Aldermoor',  tier: 'regional', inYourCity: false, fame: 270, quality: 310, visitors: 3000 },
-  { id: 'reg-9', name: 'Crestfield Museum',        city: 'Crestfield', tier: 'regional', inYourCity: false, fame: 390, quality: 290, visitors: 8400 },
+  { id: 'reg-1', name: 'Ashbourne Museum of Art',  city: 'Ashbourne',  tier: 'regional', inYourCity: false, fame: 480, quality: 300, visitors: 8600 },
+  { id: 'reg-2', name: 'The Castleton Gallery',    city: 'Castleton',  tier: 'regional', inYourCity: false, fame: 390, quality: 360, visitors: 8900 },
+  { id: 'reg-3', name: 'Fairhaven Art Institute',  city: 'Fairhaven',  tier: 'regional', inYourCity: false, fame: 570, quality: 320, visitors: 8200 },
+  { id: 'reg-4', name: 'The Linden Collection',    city: 'Linden',     tier: 'regional', inYourCity: false, fame: 350, quality: 280, visitors: 3100 },
+  { id: 'reg-5', name: 'Pemberton Museum',         city: 'Pemberton',  tier: 'regional', inYourCity: false, fame: 500, quality: 340, visitors: 8600 },
+  { id: 'reg-6', name: 'The Hartwell Gallery',     city: 'Hartwell',   tier: 'regional', inYourCity: false, fame: 420, quality: 260, visitors: 8800 },
+  { id: 'reg-7', name: 'Brightwater Art Museum',   city: 'Brightwater',tier: 'regional', inYourCity: false, fame: 600, quality: 380, visitors: 8200 },
+  { id: 'reg-8', name: 'The Aldermoor Institute',  city: 'Aldermoor',  tier: 'regional', inYourCity: false, fame: 380, quality: 310, visitors: 3000 },
+  { id: 'reg-9', name: 'Crestfield Museum',        city: 'Crestfield', tier: 'regional', inYourCity: false, fame: 550, quality: 290, visitors: 8400 },
 
   /* --- regional, in YOUR city (3 static local-tier benchmarks) --- */
-  { id: 'city-loc-1', name: 'The Rosewood Gallery',  city: 'Your City', tier: 'local', inYourCity: true, fame: 90,  quality: 80,  visitors: 520 },
-  { id: 'city-loc-2', name: 'Maple Street Museum',   city: 'Your City', tier: 'local', inYourCity: true, fame: 140, quality: 120, visitors: 1300 },
-  { id: 'city-loc-3', name: 'The Old Mill Gallery',  city: 'Your City', tier: 'local', inYourCity: true, fame: 200, quality: 170, visitors: 800 },
+  { id: 'city-loc-1', name: 'The Rosewood Gallery',  city: 'Your City', tier: 'local', inYourCity: true, fame: 120,  quality: 80,  visitors: 520 },
+  { id: 'city-loc-2', name: 'Maple Street Museum',   city: 'Your City', tier: 'local', inYourCity: true, fame: 180, quality: 120, visitors: 1300 },
+  { id: 'city-loc-3', name: 'The Old Mill Gallery',  city: 'Your City', tier: 'local', inYourCity: true, fame: 260, quality: 170, visitors: 800 },
   /* regional, in your city (3) */
-  { id: 'city-reg-1', name: 'The Beaumont Museum',   city: 'Your City', tier: 'regional', inYourCity: true, fame: 320, quality: 290, visitors: 8900 },
-  { id: 'city-reg-2', name: 'Harborview Art Museum', city: 'Your City', tier: 'regional', inYourCity: true, fame: 380, quality: 350, visitors: 8600 },
-  { id: 'city-reg-3', name: 'The Sterling Collection',city:'Your City', tier: 'regional', inYourCity: true, fame: 290, quality: 330, visitors: 3000 },
+  { id: 'city-reg-1', name: 'The Beaumont Museum',   city: 'Your City', tier: 'regional', inYourCity: true, fame: 450, quality: 290, visitors: 8900 },
+  { id: 'city-reg-2', name: 'Harborview Art Museum', city: 'Your City', tier: 'regional', inYourCity: true, fame: 530, quality: 350, visitors: 8600 },
+  { id: 'city-reg-3', name: 'The Sterling Collection',city:'Your City', tier: 'regional', inYourCity: true, fame: 410, quality: 330, visitors: 3000 },
 ];
 
 /** a district's starter building */

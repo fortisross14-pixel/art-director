@@ -256,15 +256,25 @@ function Building({ state, apply, nav }: Props) {
           <div><span>Visitors / capacity</span><i><em style={{ width: `${Math.min(100, perDay / cap * 100)}%` }} /></i><b>{perDay}</b></div>
           <div><span>Rooms open</span><i><em style={{ width: `${open / m.rooms.length * 100}%` }} /></i><b>{open}/{m.rooms.length}</b></div>
         </div>
-        <p className="empty-note">Upkeep {money(b.maintenance)} a week. {E.atCapacity(state, m) ? <b>The building is full: open rooms or move.</b> : ''}</p>
+        <p className="empty-note">Holds {cap.toLocaleString()} a day now; each room you open makes room for more. Collection care {money(E.collectionCare(state))} a week. {E.atCapacity(state, m) ? <b>The building is full: open rooms or move.</b> : ''}</p>
         {open < m.rooms.length && <button className="v2-wide" onClick={() => apply(E.openRoom(state))}>Open a room · {money(E.roomCost(state))}</button>}
       </div>
       {nb && <div className="panel">
         <div className="kicker">The next step up</div>
         <h2>{nb.name}</h2>
         <p className="empty-note">{nb.blurb} Holds about {nb.capacity.toLocaleString()} a day · upkeep {money(nb.maintenance)} / week.</p>
-        <button className="v2-wide" onClick={() => apply(E.moveToBuilding(state, nb.id))} disabled={state.funds < nb.moveCost}>Move · {money(nb.moveCost)}</button>
+        {E.moveBlocker(state, nb.id) && <p className="v2-muted"><b>{E.moveBlocker(state, nb.id)}</b></p>}
+        <button className="v2-wide" onClick={() => apply(E.moveToBuilding(state, nb.id))} disabled={state.funds < nb.moveCost || !!E.moveBlocker(state, nb.id)}>Move · {money(nb.moveCost)}</button>
         <button className="ghost v2-wide" onClick={() => nav.go('office', 'standing')}>See the whole city</button>
+      </div>}
+      {!nb && !b.starter && <div className="panel">
+        <div className="kicker">Grow the flagship</div>
+        <h2>A new wing<span className="sub">{m.wings || 0} of {E.MAX_WINGS} built</span></h2>
+        {(m.wings || 0) < E.MAX_WINGS ? <>
+          <p className="empty-note">Five more rooms and a quarter more visitors. Each wing costs twice the last.</p>
+          {E.wingBlocker(state) && <p className="v2-muted"><b>{E.wingBlocker(state)}</b></p>}
+          <button className="v2-wide" disabled={!!E.wingBlocker(state)} onClick={() => apply(E.buildWing(state))}>Build · {money(E.wingCost(m))}</button>
+        </> : <p className="empty-note">The site is complete.</p>}
       </div>}
       <TemporaryExhibitionsPanel state={state} apply={apply} />
     </>

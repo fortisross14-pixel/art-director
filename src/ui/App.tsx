@@ -1591,7 +1591,7 @@ function WeekTab({
       <div className="filter-group-label">Auction Houses</div>
       {AUCTION_HOUSES.map(h => {
         const joined = state.joinedHouses.includes(h.id);
-        const unlocked = E.totalFame(state) >= h.fameToUnlock;
+        const unlocked = E.houseOpen(state, h);
         return (
           <div className="row" key={h.id}>
             <div className="meta">

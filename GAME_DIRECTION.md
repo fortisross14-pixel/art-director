@@ -688,8 +688,12 @@ full-screen gallery, a calendar inside Acquire, and four card games:
 the gala deckbuilder, the push-your-luck dig, the dealer's evidence
 cards and auction viewing with bidder tells. See VERSION_16_NOTES.md.
 
-### M8 (v1.5): Balance
-**Scope:** R44–R48.
+### M8 (v1.5): Balance (in progress, v17)
+**Scope:** R44–R48. Done in v17: stage pacing, gated buildings, wings,
+the Evening Sale, success-scaled costs, archetype parity, and
+`npm run sim:sweep`. See VERSION_17_NOTES.md.
+Still open: the difficulty setting, CI target bands, and branch
+museums as the end-game sink.
 
 **The three stages of a career** are the backbone of balance. Each one
 has its own goal, bottleneck and target length:
@@ -698,7 +702,7 @@ has its own goal, bottleneck and target length:
 |---|---|---|---|---|
 | **Early: fill the gallery** | Fill a small gallery with *any* works: commons, coins, sketches, one or two lucky rares | Cash and wall space; every purchase matters | Common–Rare | Year 1–2 |
 | **Mid: expand and diversify** | More rooms, a bigger building, new collections in different styles and topics, cohesive rooms and sets | Space, staff time, choosing which collections to grow | Uncommon–Epic | Years 2–8 |
-| **Late: compete with the world** | One of the best museums in the world, built on Epic, Legendary and World Icon works | Supply of top works, rival competition, prestige | Epic–World Icon | Years 8+ |
+| **Late: compete with the world** | One of the best museums in the world, built on Epic, Legendary and World Icon works | Supply of top works, rival competition, prestige | Epic–World Icon | Years 6–9 onward |
 
 - Each stage changes what "good play" means. Early you buy anything
   that hangs; mid you curate and specialise; late you hunt specific
